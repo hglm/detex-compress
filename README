@@ -1,0 +1,60 @@
+---- Introduction ----
+
+detex-compress is a fast texture compression utility that makes use of the
+detex library. As opposed to texgenpack, which uses a general and versatile
+but slow compression method, detex-compress uses relatively fast compression
+algorithms specifically optimized for a texture compression format. In the
+current version, only BC1 (S3TC) compression is supported. The utility is
+multi-threaded and can compress a 1024x1024 BC1 texture within about 10 seconds
+with good quality.
+
+The program makes uses of detex (https://github.com/hglm/detex) and
+DataSetTurbo (https://github.com/hglm/DataSetTurbo).
+
+It is the intention that support for more compression formats will added in
+the future.
+
+---- Compilation and installation ----
+
+To compile, detex and DataSetTurbo are required. Running 'make' will compile
+the main program detex-compress and running 'sudo make install' will install
+it into the directory defined in Makefile.conf (/usr/bin by default).
+
+As an example, the following commands can be used to install DataSetTurbo,
+detex and compile and install the compression utility.
+
+	git clone https://github.com/hglm/DataSetTurbo.git
+	cd DataSetTurbo
+	make
+	sudo make install
+	cd ..
+	git clone https://github.com/hglm/detex.git
+	cd detex
+	make
+	sudo make install
+	cd ..
+	cd detex-compress
+	make
+	sudo make install
+
+--- Usage ----
+
+Run detex-compress without arguments for a list of all available options.
+
+The --tries option sets the number of tries that will be performed to compress
+each 4x4 pixel block. The default is one. A higher number of tries results in
+better quality at the expense of running time.
+
+The --modal option causes a compression try to be performed for each mode
+supported by the compression format. Since BC1/S3TC has two modes, use of this
+option will double the amount of tries. Use of this option can increase quality
+and improves worst-case quality by make sure each compression mode is
+sufficiently explored.
+
+Example command lines:
+
+	detex-compress --format BC1 texture.png texture.dds
+	detex-compress --format BC1 --modal texture.png texture.ktx
+	detex-compress --format BC1 --tries 4 --modal texture.png texture.ktx
+	detex-compress --decompress texture.ktx texture-decompressed.ktx
+
