@@ -193,11 +193,15 @@ static void *CompressBlocksThread(void *_thread_data) {
 	return NULL;
 }
 
-bool detexCompressTexture(int nu_tries, bool modal, const detexTexture * DETEX_RESTRICT texture,
+bool detexCompressTexture(int nu_tries, bool modal, int max_threads, const detexTexture * DETEX_RESTRICT texture,
 uint8_t * DETEX_RESTRICT pixel_buffer, uint32_t output_format) {
 	// Calculate the number of blocks.
 	int nu_blocks = (texture->height / 4) * (texture->width / 4);
-	int nu_threads = sysconf(_SC_NPROCESSORS_CONF);
+	int nu_threads;
+	if (max_threads > 0)
+		nu_threads = max_threads;
+	else
+		nu_threads = sysconf(_SC_NPROCESSORS_CONF);
 	int nu_blocks_per_thread = nu_blocks / nu_threads;
 	if (nu_blocks_per_thread < 32) {
 		nu_threads = nu_blocks / 32;

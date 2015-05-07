@@ -36,6 +36,7 @@ static char *input_file;
 static char *output_file;
 static int output_file_type;
 static int nu_tries;
+static int max_threads;
 
 static const uint32_t supported_formats[] = {
 	// Uncompressed formats.
@@ -101,6 +102,7 @@ static const struct option long_options[] = {
 	{ "quiet", no_argument, NULL, 'q' },
 	{ "modal", no_argument, NULL, 'm' },
 	{ "tries", required_argument, NULL, 't' },
+	{ "max-threads", required_argument, NULL, 'n' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -188,6 +190,7 @@ static uint32_t ParseFormat(const char *s) {
 static void ParseArguments(int argc, char **argv) {
 	option_flags = 0;
 	nu_tries = 1;
+	max_threads = 0;
 	while (true) {
 		int option_index = 0;
 		int c = getopt_long(argc, argv, "f:o:i:q", long_options, &option_index);
@@ -216,7 +219,12 @@ static void ParseArguments(int argc, char **argv) {
 			nu_tries = atoi(optarg);
 			if (nu_tries < 1 || nu_tries >= 1024)
 				FatalError("Invalid value for number of tries\n");
-			break;		
+			break;
+		case 'n' :
+			max_threads = atoi(optarg);
+			if (max_threads < 1 || max_threads > 256)
+				FatalError("Invalid value for maximum number of threads\n");
+			break;
 		default :
 			FatalError("");
 			break;
@@ -337,7 +345,7 @@ int main(int argc, char **argv) {
 				output_textures[i] = (detexTexture *)malloc(sizeof(detexTexture));
 				output_textures[i]->data = (uint8_t *)malloc(size); 
 				bool r = detexCompressTexture(nu_tries, (option_flags & OPTION_FLAG_MODAL) != 0,
-					adjusted_input_texture, output_textures[i]->data,
+					max_threads, adjusted_input_texture, output_textures[i]->data,
 					output_format);
 				if (!r)
 					FatalError("Error compressing texture");

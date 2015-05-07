@@ -16,8 +16,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
 
-bool detexCompressTexture(int nu_tries, bool modal, const detexTexture *texture, uint8_t *pixel_buffer,
-	uint32_t output_format);
+bool detexCompressTexture(int nu_tries, bool modal, int max_threads, const detexTexture *texture,
+	uint8_t *pixel_buffer, uint32_t output_format);
 
 double detexCompareTextures(const detexTexture *input_texture, detexTexture *compressed_texture,
 	double *average_rmse, double *rmse_sd);
