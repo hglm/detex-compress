@@ -26,6 +26,7 @@ enum detexErrorUnit {
 
 struct detexCompressionInfo {
 	int nu_modes;
+	bool modal_default;
 	detexErrorUnit error_unit;
 	uint32_t (*get_mode_func)(const uint8_t *bitstring);
 	void (*set_mode_func)(uint8_t *bitstring, uint32_t mode, uint32_t flags, uint32_t *colors);

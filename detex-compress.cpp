@@ -85,12 +85,20 @@ static const uint32_t supported_formats[] = {
 
 #define NU_SUPPORTED_FORMATS (sizeof(supported_formats) / sizeof(supported_formats[0]))
 
+static const uint32_t supported_formats_compression[] = {
+	DETEX_TEXTURE_FORMAT_BC1,
+};
+
+#define NU_SUPPORTED_FORMATS_COMPRESSION (sizeof(supported_formats_compression) \
+	/ sizeof(supported_formats_compression[0]))
+
 enum {
 	OPTION_FLAG_OUTPUT_FORMAT = 0x1,
 	OPTION_FLAG_INPUT_FORMAT = 0x2,
 	OPTION_FLAG_DECOMPRESS = 0x4,
 	OPTION_FLAG_QUIET = 0x8,
-	OPTION_FLAG_MODAL = 0x10
+	OPTION_FLAG_MODAL = 0x10,
+	OPTION_FLAG_NON_MODAL = 0x20,
 };
 
 static const struct option long_options[] = {
@@ -101,6 +109,7 @@ static const struct option long_options[] = {
 	{ "decompress", no_argument, NULL, 'd' },
 	{ "quiet", no_argument, NULL, 'q' },
 	{ "modal", no_argument, NULL, 'm' },
+	{ "non-modal", no_argument, NULL, 'l' },
 	{ "tries", required_argument, NULL, 't' },
 	{ "max-threads", required_argument, NULL, 'n' },
 	{ NULL, 0, NULL, 0 }
@@ -133,6 +142,32 @@ static __attribute ((noreturn)) void FatalError(const char *format, ...) {
 	exit(1);
 }
 
+static void PrintFormatList(const uint32_t *formats, int nu_formats) {
+	int column = 0;
+	for (int i = 0; i < nu_formats; i++) {
+		const char *format_text1 = detexGetTextureFormatText(formats[i]);
+		const char *format_text2 = detexGetAlternativeTextureFormatText(formats[i]);
+		int length1 = strlen(format_text1);
+		int length2 = strlen(format_text2);
+		int length = length1;
+		if (length2 > 0)
+			length += 3 + length2;	
+		if (column + length > 78) {
+			Message("\n");
+			column = 0;
+		}
+		Message("%s", format_text1);
+		if (length2 > 0)
+			Message(" (%s)", format_text2);
+		column += length;
+		if (i < nu_formats - 1) {
+			Message(", ");
+			column += 2;
+		}
+	}
+	Message("\n");
+}
+
 static void Usage() {
 	Message("detex-compress %s\n", DETEX_COMPRESS_VERSION);
 	Message("Convert, decompress and compress uncompressed and compressed texture files (KTX, DDS, raw)\n");
@@ -150,29 +185,9 @@ static void Usage() {
 	}
 	Message("File formats supported: KTX, DDS, raw (no header), PNG\n");
 	Message("Supported formats:\n");
-	int column = 0;
-	for (int i = 0; i < NU_SUPPORTED_FORMATS; i++) {
-		const char *format_text1 = detexGetTextureFormatText(supported_formats[i]);
-		const char *format_text2 = detexGetAlternativeTextureFormatText(supported_formats[i]);
-		int length1 = strlen(format_text1);
-		int length2 = strlen(format_text2);
-		int length = length1;
-		if (length2 > 0)
-			length += 3 + length2;	
-		if (column + length > 78) {
-			Message("\n");
-			column = 0;
-		}
-		Message("%s", format_text1);
-		if (length2 > 0)
-			Message(" (%s)", format_text2);
-		column += length;
-		if (i < NU_SUPPORTED_FORMATS - 1) {
-			Message(", ");
-			column += 2;
-		}
-	}
-	Message("\n");
+	PrintFormatList(supported_formats, NU_SUPPORTED_FORMATS);
+	Message("Supported formats (compression):\n");
+	PrintFormatList(supported_formats_compression, NU_SUPPORTED_FORMATS_COMPRESSION);
 }
 
 static uint32_t ParseFormat(const char *s) {
@@ -214,6 +229,9 @@ static void ParseArguments(int argc, char **argv) {
 			break;
 		case 'm' :
 			option_flags |= OPTION_FLAG_MODAL;
+			break;
+		case 'l' :
+			option_flags |= OPTION_FLAG_NON_MODAL;
 			break;
 		case 't' :
 			nu_tries = atoi(optarg);
@@ -324,6 +342,18 @@ int main(int argc, char **argv) {
 			if (output_format != DETEX_TEXTURE_FORMAT_BC1)
 				FatalError("Cannot convert to output format %s (detex-compress does not support compression "
 					"to format)\n", detexGetTextureFormatText(output_format));
+			Message("Tries per block: %d, ", nu_tries);
+			bool modal = detexGetModalDefault(output_format);
+			if (option_flags & OPTION_FLAG_MODAL)
+				modal = true;
+			if (option_flags & OPTION_FLAG_NON_MODAL)
+				modal = false;
+			if (modal) {
+				int nu_modes = detexGetNumberOfModes(output_format);
+				Message("modal (%d modes), total tries per block: %d\n", nu_modes, nu_tries * nu_modes);
+			}
+			else
+				Message("non-modal\n");
 			for (int i = 0; i < nu_levels; i++) {
 				if ((input_textures[i]->width & 3) != 0 || (input_textures[i]->height & 3) != 0)
 					FatalError("Input texture dimensions must be multiple of four for compression\n");
@@ -344,9 +374,8 @@ int main(int argc, char **argv) {
 					input_textures[i]->height / 16;
 				output_textures[i] = (detexTexture *)malloc(sizeof(detexTexture));
 				output_textures[i]->data = (uint8_t *)malloc(size); 
-				bool r = detexCompressTexture(nu_tries, (option_flags & OPTION_FLAG_MODAL) != 0,
-					max_threads, adjusted_input_texture, output_textures[i]->data,
-					output_format);
+				bool r = detexCompressTexture(nu_tries, modal, max_threads,
+					adjusted_input_texture, output_textures[i]->data, output_format);
 				if (!r)
 					FatalError("Error compressing texture");
 				output_textures[i]->format = output_format;

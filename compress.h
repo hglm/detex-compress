@@ -22,3 +22,7 @@ bool detexCompressTexture(int nu_tries, bool modal, int max_threads, const detex
 double detexCompareTextures(const detexTexture *input_texture, detexTexture *compressed_texture,
 	double *average_rmse, double *rmse_sd);
 
+int detexGetNumberOfModes(uint32_t format);
+
+bool detexGetModalDefault(uint32_t format);
+

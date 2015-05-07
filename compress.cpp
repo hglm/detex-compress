@@ -63,7 +63,7 @@ uint8_t * DETEX_RESTRICT pixel_buffer) {
 }
 
 static const detexCompressionInfo compression_info[] = {
-	{ 2, DETEX_ERROR_UNIT_UINT32, detexGetModeBC1, detexSetModeBC1,
+	{ 2, true, DETEX_ERROR_UNIT_UINT32, detexGetModeBC1, detexSetModeBC1,
 	MutateBC1, SetPixelsBC1, detexCalculateErrorRGBX8 },
 };
 
@@ -201,7 +201,9 @@ uint8_t * DETEX_RESTRICT pixel_buffer, uint32_t output_format) {
 	if (max_threads > 0)
 		nu_threads = max_threads;
 	else
-		nu_threads = sysconf(_SC_NPROCESSORS_CONF);
+		// A number of threads higher than the number of CPU cores helps performance
+		// on PC-class devices.
+		nu_threads = sysconf(_SC_NPROCESSORS_CONF) * 2;
 	int nu_blocks_per_thread = nu_blocks / nu_threads;
 	if (nu_blocks_per_thread < 32) {
 		nu_threads = nu_blocks / 32;
@@ -291,5 +293,15 @@ detexTexture * DETEX_RESTRICT compressed_texture, double *average_rmse, double *
 	}
 	free(block_rmse);
 	return rmse;
+}
+
+int detexGetNumberOfModes(uint32_t format) {
+	int compressed_format_index = detexGetCompressedFormat(format);
+	return compression_info[compressed_format_index - 1].nu_modes;
+}
+
+bool detexGetModalDefault(uint32_t format) {
+	int compressed_format_index = detexGetCompressedFormat(format);
+	return compression_info[compressed_format_index - 1].modal_default;
 }
 
