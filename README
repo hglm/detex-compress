@@ -46,15 +46,16 @@ each 4x4 pixel block. The default is one. A higher number of tries results in
 better quality at the expense of running time.
 
 The --modal option causes a compression try to be performed for each mode
-supported by the compression format. Since BC1/S3TC has two modes, use of this
-option will double the amount of tries. Use of this option can increase quality
-and improves worst-case quality by make sure each compression mode is
-sufficiently explored.
+supported by the compression format. The non-modal option disables modal
+operation. Since BC1/S3TC has two modes, modal operation will double the amount
+of tries. Modal operation can increase quality and improves worst-case quality
+by make sure each compression mode is sufficiently explored. For the BC1
+format, modal operation is the default.
 
 Example command lines:
 
 	detex-compress --format BC1 texture.png texture.dds
-	detex-compress --format BC1 --modal texture.png texture.ktx
-	detex-compress --format BC1 --tries 4 --modal texture.png texture.ktx
+	detex-compress --format BC1 --non-modal texture.png texture.ktx
+	detex-compress --format BC1 --tries 4 texture.png texture.ktx
 	detex-compress --decompress texture.ktx texture-decompressed.ktx
 
