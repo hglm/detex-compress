@@ -27,6 +27,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include "detex.h"
 #include "detex-png.h"
+#include "mipmaps.h"
 #include "compress.h"
 
 static uint32_t input_format;
@@ -99,6 +100,7 @@ enum {
 	OPTION_FLAG_QUIET = 0x8,
 	OPTION_FLAG_MODAL = 0x10,
 	OPTION_FLAG_NON_MODAL = 0x20,
+	OPTION_FLAG_MIPMAPS = 0x40,
 };
 
 static const struct option long_options[] = {
@@ -112,6 +114,7 @@ static const struct option long_options[] = {
 	{ "non-modal", no_argument, NULL, 'l' },
 	{ "tries", required_argument, NULL, 't' },
 	{ "max-threads", required_argument, NULL, 'n' },
+	{ "mipmaps", no_argument, NULL, 'p' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -243,6 +246,9 @@ static void ParseArguments(int argc, char **argv) {
 			if (max_threads < 1 || max_threads > 256)
 				FatalError("Invalid value for maximum number of threads\n");
 			break;
+		case 'p' :
+			option_flags |= OPTION_FLAG_MIPMAPS;
+			break;
 		default :
 			FatalError("");
 			break;
@@ -267,6 +273,13 @@ static int DetermineFileType(const char *filename) {
 		return FILE_TYPE_PNG;
 	else
 		return FILE_TYPE_NONE;
+}
+
+int NumberOfLevels4x4OrLarger(detexTexture **textures, int nu_levels) {
+	for (int i = 0; i < nu_levels; i++)
+		if (textures[i]->width < 4 || textures[i]->height < 4)
+			return i - 1;
+	return nu_levels;
 }
 
 int main(int argc, char **argv) {
@@ -303,12 +316,35 @@ int main(int argc, char **argv) {
 	char s[80];
 	if (option_flags & OPTION_FLAG_INPUT_FORMAT) {
 		sprintf(s, "%s (specified)", detexGetTextureFormatText(input_format));
+		for (int i = 0; i < nu_levels; i++)
+			input_textures[0]->format = input_format;
 	}
 	else {
 		sprintf(s, "%s (detected)", detexGetTextureFormatText(input_textures[0]->format));
-		input_format = input_textures[0]->format;
 	}
-	Message("Input file: %s, format %s\n", input_file, s);
+	Message("Input file: %s, format %s, %d level%s\n", input_file, s, nu_levels,
+		nu_levels == 1 ? "" : "s");
+	if (option_flags & OPTION_FLAG_MIPMAPS) {
+		if (!detexMipmapGenerationSupported(input_textures[0]->format))
+			FatalError("Mipmap generation not supported for format %s",
+				detexGetTextureFormatText(input_textures[0]->format));
+		detexTexture **mipmap_textures;
+		int nu_mipmap_levels;
+		// Generate mipmaps. The original texture is transferred to the first output texture.
+		detexGenerateMipmaps(input_textures[0], &mipmap_textures, &nu_mipmap_levels);
+		Message("Generated mipmaps (total %d level%s)\n", nu_mipmap_levels,
+			nu_mipmap_levels == 1 ? "" : "s");
+		// If the original texture already had extra levels beyond the first level,
+		// free them, including the associated pixel buffers.
+		for (int i = 1; i < nu_levels; i++) {
+			free(input_textures[i]->data);
+			free(input_textures[i]);
+		}
+		free(input_textures);
+		input_textures = mipmap_textures;
+		nu_levels = nu_mipmap_levels;
+	}
+	input_format = input_textures[0]->format;
 	if (option_flags & OPTION_FLAG_OUTPUT_FORMAT) {
 		sprintf(s, "%s (specified)", detexGetTextureFormatText(output_format));
 	}
@@ -342,6 +378,7 @@ int main(int argc, char **argv) {
 			if (output_format != DETEX_TEXTURE_FORMAT_BC1)
 				FatalError("Cannot convert to output format %s (detex-compress does not support compression "
 					"to format)\n", detexGetTextureFormatText(output_format));
+			nu_levels = NumberOfLevels4x4OrLarger(input_textures, nu_levels);
 			Message("Tries per block: %d, ", nu_tries);
 			bool modal = detexGetModalDefault(output_format);
 			if (option_flags & OPTION_FLAG_MODAL)

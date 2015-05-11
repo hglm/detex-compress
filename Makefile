@@ -7,14 +7,14 @@ VERSION = 0.1
 SO_VERSION = 0.1
 
 ifeq ($(USE_DEBUG_FLAGS), YES)
-OPTCFLAGS += -ggdb
+OPTCFLAGS += -ggdb -O
 else
 OPTCFLAGS += -Ofast -ffast-math
 endif
 CPPFLAGS = -std=c++98 -Wall -Wno-maybe-uninitialized -pipe -I. $(OPTCFLAGS)
 CPPFLAGS += -DDETEX_COMPRESS_VERSION=\"v$(VERSION)\"
 
-MODULE_OBJECTS = detex-compress.o compress.o png.o compress-bc1.o
+MODULE_OBJECTS = detex-compress.o compress.o png.o mipmaps.o compress-bc1.o
 PROGRAMS = detex-compress
 
 default : detex-compress
