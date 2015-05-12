@@ -89,6 +89,16 @@ static const uint8_t detex_bc1_offset_random_bits_table[] = {
 	1, 1, 1, 1,		// Random 1 to 2, generation 1792-2043
 };
 
+void SeedBC1(const detexTexture *texture, int x, int y, dstCMWCRNG *rng, int mode, uint32_t flags,
+uint32_t *colors, uint8_t *bitstring) {
+	// Only need to initialize the color fields. The pixel values will be set later.
+	uint32_t *bitstring32 = (uint32_t *)bitstring;
+	*(uint32_t *)bitstring32 = rng->Random32();
+	if (mode >= 0)
+		detexSetModeBC1(bitstring, mode, 0, NULL);
+
+}
+
 void MutateBC1(dstCMWCRNG *rng, int generation, int mode, uint8_t *bitstring) {
 	uint32_t *bitstring32 = (uint32_t *)bitstring;
 	uint32_t colors = *bitstring32;

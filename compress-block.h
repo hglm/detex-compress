@@ -28,6 +28,8 @@ struct detexCompressionInfo {
 	int nu_modes;
 	bool modal_default;
 	detexErrorUnit error_unit;
+	void (*seed_func)(const detexTexture *texture, int x, int y, dstCMWCRNG *rng, int mode,
+		uint32_t flags, uint32_t *colors, uint8_t *bitstring);
 	uint32_t (*get_mode_func)(const uint8_t *bitstring);
 	void (*set_mode_func)(uint8_t *bitstring, uint32_t mode, uint32_t flags, uint32_t *colors);
 	void (*mutate_func)(dstCMWCRNG *rng, int generation, int mode, uint8_t *bitstring);
@@ -52,7 +54,15 @@ static DETEX_INLINE_ONLY uint32_t GetPixelErrorRGB8(int r1, int g1, int b1, int 
 
 // BC1
 
+void SeedBC1(const detexTexture *texture, int x, int y, dstCMWCRNG *rng, int mode, uint32_t flags,
+	uint32_t *colors, uint8_t *bitstring);
 void MutateBC1(dstCMWCRNG *rng, int generation, int mode, uint8_t *bitstring);
-uint32_t SetPixelsBC1(const detexTexture * DETEX_RESTRICT texture, int x, int y,
-	uint8_t * DETEX_RESTRICT bitstring);
+uint32_t SetPixelsBC1(const detexTexture *texture, int x, int y, uint8_t *bitstring);
+
+// BC2
+
+void SeedBC2(const detexTexture *texture, int x, int y, dstCMWCRNG *rng, int mode, uint32_t flags,
+	uint32_t *colors, uint8_t *bitstring);
+void MutateBC2(dstCMWCRNG *rng, int generation, int mode, uint8_t *bitstring);
+uint32_t SetPixelsBC2(const detexTexture *texture, int x, int y, uint8_t *bitstring);
 

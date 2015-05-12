@@ -375,9 +375,8 @@ int main(int argc, char **argv) {
 	else {
 		output_textures = (detexTexture **)malloc(sizeof(detexTexture *) * nu_levels);
 		if (detexFormatIsCompressed(output_format)) {
-			if (output_format != DETEX_TEXTURE_FORMAT_BC1)
-				FatalError("Cannot convert to output format %s (detex-compress does not support compression "
-					"to format)\n", detexGetTextureFormatText(output_format));
+			if (!detexCompressionSupported(output_format))
+				FatalError("Cannot convert to output format %s (detex-compress does not support " 						"compression to format)\n", detexGetTextureFormatText(output_format));
 			nu_levels = NumberOfLevels4x4OrLarger(input_textures, nu_levels);
 			Message("Tries per block: %d, ", nu_tries);
 			bool modal = detexGetModalDefault(output_format);

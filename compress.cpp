@@ -62,9 +62,74 @@ uint8_t * DETEX_RESTRICT pixel_buffer) {
 	return error;
 }
 
+static DETEX_INLINE_ONLY void AddErrorPixelXYRGBA8(const uint8_t * DETEX_RESTRICT pix1,
+const uint8_t * DETEX_RESTRICT pix2, int pix2_stride, int dx, int dy, uint32_t & DETEX_RESTRICT error) {
+	uint32_t pixel1 = *(uint32_t *)(pix1 + (dy * 4 + dx) * 4);
+	uint32_t pixel2 = *(uint32_t *)(pix2 + dy * pix2_stride + dx * 4);
+	int a1 = detexPixel32GetA8(pixel1);
+	int a2 = detexPixel32GetA8(pixel2);
+	if ((a1 | a2) != 0) {
+		error += (a1 - a2) * (a1 - a2);
+		int r1 = detexPixel32GetR8(pixel1);
+		int g1 = detexPixel32GetG8(pixel1);
+		int b1 = detexPixel32GetB8(pixel1);
+		int r2 = detexPixel32GetR8(pixel2);
+		int g2 = detexPixel32GetG8(pixel2);
+		int b2 = detexPixel32GetB8(pixel2);
+		error += GetPixelErrorRGB8(r1, g1, b1, r2, g2, b2);
+	}
+}
+
+static uint32_t detexCalculateErrorRGBA8(const detexTexture * DETEX_RESTRICT texture, int x, int y,
+uint8_t * DETEX_RESTRICT pixel_buffer) {
+	uint8_t *pix1 = pixel_buffer;
+	uint8_t *pix2 = texture->data + (y * texture->width + x) * 4;
+	int pix2_stride = texture->width * 4;
+	uint32_t error = 0;
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 0, 0, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 1, 0, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 2, 0, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 3, 0, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 0, 1, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 1, 1, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 2, 1, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 3, 1, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 0, 2, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 1, 2, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 2, 2, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 3, 2, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 0, 3, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 1, 3, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 2, 3, error);
+	AddErrorPixelXYRGBA8(pix1, pix2, pix2_stride, 3, 3, error);
+	return error;
+}
+
+static const uint32_t supported_formats[] = {
+	DETEX_TEXTURE_FORMAT_BC1,
+	DETEX_TEXTURE_FORMAT_BC2,
+};
+
+#define NU_SUPPORTED_FORMATS (sizeof(supported_formats) / sizeof(supported_formats[0]))
+
+bool detexCompressionSupported(uint32_t format) {
+	for (int i = 0; i < NU_SUPPORTED_FORMATS; i++)
+		if (format == supported_formats[i])
+			return true;
+	return false;
+}
+
 static const detexCompressionInfo compression_info[] = {
-	{ 2, true, DETEX_ERROR_UNIT_UINT32, detexGetModeBC1, detexSetModeBC1,
+	// BC1
+	{ 2, true, DETEX_ERROR_UNIT_UINT32, SeedBC1, detexGetModeBC1, detexSetModeBC1,
 	MutateBC1, SetPixelsBC1, detexCalculateErrorRGBX8 },
+	// BC1A
+	{ 2, true, DETEX_ERROR_UNIT_UINT32, NULL, NULL, NULL, NULL, NULL },
+	// BC2
+	// Use modal configuration with just one mode. This ensure the color definitions
+	// comply to mode 0, as required for BC2.
+	{ 1, true, DETEX_ERROR_UNIT_UINT32, SeedBC2, NULL, NULL,
+	MutateBC2, SetPixelsBC2, detexCalculateErrorRGBA8 },
 };
 
 static double detexCompressBlock(const detexCompressionInfo * DETEX_RESTRICT info,
@@ -79,16 +144,8 @@ uint8_t * DETEX_RESTRICT bitstring_out, uint32_t output_format) {
 	int last_improvement_generation = -1;
 	for (int generation = 0; generation < 2048 || last_improvement_generation > generation - 384;) {
 		if (generation < 256) {
-			// For the first 256 iterations, generate a random bitstring.
-			uint32_t *bitstring32 = (uint32_t *)bitstring;
-			*(uint32_t *)bitstring32 = rng->Random32();
-			*(uint32_t *)(bitstring + 4) = rng->Random32();
-			if (compressed_block_size == 16) {
-				*(uint32_t *)(bitstring + 8) = rng->Random32();
-				*(uint32_t *)(bitstring + 12) = rng->Random32();
-			}
-			if (mode >= 0)
-				info->set_mode_func(bitstring, mode, 0, NULL);
+			// For the first 256 iterations, use the seeding function.
+			info->seed_func(texture, x, y, rng, mode, 0, NULL, bitstring);
 		}
 		else {
 			// From iteration 256, use mutation.

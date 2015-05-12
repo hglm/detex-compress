@@ -26,3 +26,5 @@ int detexGetNumberOfModes(uint32_t format);
 
 bool detexGetModalDefault(uint32_t format);
 
+bool detexCompressionSupported(uint32_t format);
+
