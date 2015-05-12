@@ -36,35 +36,36 @@ uint8_t * DETEX_RESTRICT bitstring) {
 	*(uint64_t *)&bitstring[0] = alpha_pixels;
 }
 
-void SeedBC2(const detexTexture *texture, int x, int y, dstCMWCRNG * DST_RESTRICT rng, int mode,
-uint32_t flags, uint32_t * DST_RESTRICT colors, uint8_t * DST_RESTRICT bitstring) {
+void SeedBC2(const detexBlockInfo * DETEX_RESTRICT info, dstCMWCRNG * DETEX_RESTRICT rng,
+uint8_t * DETEX_RESTRICT bitstring) {
 	// Only seed the color values.
 	uint32_t color_values = rng->Random32();
 	uint32_t *color_values_p32 = (uint32_t *)(bitstring + 8);
 	*(uint32_t *)color_values_p32 = color_values;
 	// Ensure the colors correspond to mode 0.
 	detexSetModeBC1(bitstring + 8, 0, 0, NULL);
-	SetAlphaPixelsBC2(texture, x, y, bitstring);
+	SetAlphaPixelsBC2(info->texture, info->x, info->y, bitstring);
 }
 
-void MutateBC2(dstCMWCRNG * DST_RESTRICT rng, int generation, int mode,
-uint8_t * DST_RESTRICT bitstring) {
-	MutateBC1(rng, generation, mode, bitstring + 8);
-}
-
-uint32_t SetPixelsBC2(const detexTexture * DETEX_RESTRICT texture, int x, int y,
+void MutateBC2(const detexBlockInfo * DETEX_RESTRICT info, dstCMWCRNG * DETEX_RESTRICT rng, int generation,
 uint8_t * DETEX_RESTRICT bitstring) {
-	return SetPixelsBC1(texture, x, y, bitstring + 8);
+	MutateBC1(info, rng, generation, bitstring + 8);
 }
 
-void MutateBC3(dstCMWCRNG * DST_RESTRICT rng, int generation, int mode,
-uint8_t * DST_RESTRICT bitstring) {
-	MutateBC1(rng, generation, mode, bitstring + 8);
+uint32_t SetPixelsBC2(const detexBlockInfo * DETEX_RESTRICT info, uint8_t * DETEX_RESTRICT bitstring) {
+	return SetPixelsBC1(info, bitstring + 8);
 }
 
-uint32_t SetPixelsBC3(const detexTexture * DETEX_RESTRICT texture, int x, int y,
+void MutateBC3(const detexBlockInfo * DETEX_RESTRICT info, dstCMWCRNG * DETEX_RESTRICT rng, int generation,
 uint8_t * DETEX_RESTRICT bitstring) {
-	uint32_t error = SetPixelsBC1(texture, x, y, bitstring + 8);
+	MutateBC1(info, rng, generation, bitstring + 8);
+}
+
+uint32_t SetPixelsBC3(const detexBlockInfo * DETEX_RESTRICT info, uint8_t * DETEX_RESTRICT bitstring) {
+	const detexTexture *texture = info->texture;
+	int x = info->x;
+	int y = info->y;
+	uint32_t error = SetPixelsBC1(info, bitstring + 8);
 	uint8_t *pix_orig = texture->data + (y * texture->width + x) * 4;
 	int stride_orig = texture->width * 4;
 	return error;

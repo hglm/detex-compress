@@ -89,17 +89,16 @@ static const uint8_t detex_bc1_offset_random_bits_table[] = {
 	1, 1, 1, 1,		// Random 1 to 2, generation 1792-2043
 };
 
-void SeedBC1(const detexTexture *texture, int x, int y, dstCMWCRNG *rng, int mode, uint32_t flags,
-uint32_t *colors, uint8_t *bitstring) {
+void SeedBC1(const detexBlockInfo * DETEX_RESTRICT info, dstCMWCRNG *rng, uint8_t * DETEX_RESTRICT bitstring) {
 	// Only need to initialize the color fields. The pixel values will be set later.
 	uint32_t *bitstring32 = (uint32_t *)bitstring;
 	*(uint32_t *)bitstring32 = rng->Random32();
-	if (mode >= 0)
-		detexSetModeBC1(bitstring, mode, 0, NULL);
-
+	if (info->mode >= 0)
+		detexSetModeBC1(bitstring, info->mode, 0, NULL);
 }
 
-void MutateBC1(dstCMWCRNG *rng, int generation, int mode, uint8_t *bitstring) {
+void MutateBC1(const detexBlockInfo * DETEX_RESTRICT info, dstCMWCRNG * DETEX_RESTRICT rng, int generation,
+uint8_t * DETEX_RESTRICT bitstring) {
 	uint32_t *bitstring32 = (uint32_t *)bitstring;
 	uint32_t colors = *bitstring32;
 	if (generation < 1024 /* || (generation & 7) == 0 */) {
@@ -117,7 +116,7 @@ void MutateBC1(dstCMWCRNG *rng, int generation, int mode, uint8_t *bitstring) {
 				colors |= value << detex_bc1_component_shift[component];
 			}
 			int m = (colors & 0xFFFF) <= ((colors & 0xFFFF0000) >> 16);
-			if (mode < 0 || m == mode)
+			if (info->mode < 0 || m == info->mode)
 				break;
 		}
 		*(uint32_t *)bitstring32 = colors;
@@ -156,7 +155,7 @@ void MutateBC1(dstCMWCRNG *rng, int generation, int mode, uint8_t *bitstring) {
 			colors |= value << detex_bc1_component_shift[component];
 		}
 		int m = (colors & 0xFFFF) <= ((colors & 0xFFFF0000) >> 16);
-		if (mode < 0 || m == mode)
+		if (info->mode < 0 || m == info->mode)
 			break;
 	}
 	*(uint32_t *)bitstring32 = colors;
@@ -302,7 +301,8 @@ uint32_t & DETEX_RESTRICT pixel_indices) {
 	return best_error;
 }
 
-static DETEX_INLINE_ONLY void DecodeColorsBC1(uint32_t colors, int *color_r, int *color_g, int *color_b) {
+static DETEX_INLINE_ONLY void DecodeColorsBC1(uint32_t colors, int * DETEX_RESTRICT color_r,
+int * DETEX_RESTRICT color_g, int * DETEX_RESTRICT color_b) {
 	color_b[0] = (colors & 0x0000001F) << 3;
 	color_g[0] = (colors & 0x000007E0) >> (5 - 2);
 	color_r[0] = (colors & 0x0000F800) >> (11 - 3);
@@ -327,8 +327,7 @@ static DETEX_INLINE_ONLY void DecodeColorsBC1(uint32_t colors, int *color_r, int
 
 // Set the pixel indices of the compressed block using the available colors so that they
 // most closely match the original block. Return the comparison error value.
-uint32_t SetPixelsBC1(const detexTexture * DETEX_RESTRICT texture, int x, int y,
-uint8_t * DETEX_RESTRICT bitstring) {
+uint32_t SetPixelsBC1(const detexBlockInfo * DETEX_RESTRICT info, uint8_t * DETEX_RESTRICT bitstring) {
 	// Decode colors.
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ || !defined(__BYTE_ORDER__)
 	uint32_t colors = *(uint32_t *)&bitstring[0];
@@ -341,6 +340,9 @@ uint8_t * DETEX_RESTRICT bitstring) {
 	int color_r[4] DST_ALIGNED(16), color_g[4] DST_ALIGNED(16), color_b[4] DST_ALIGNED(16);
 	DecodeColorsBC1(colors, color_r, color_g, color_b);
 	// Set pixels indices.
+	const detexTexture *texture = info->texture;
+	int x = info->x;
+	int y = info->y;
 	uint8_t *pix_orig = texture->data + (y * texture->width + x) * 4;
 	int stride_orig = texture->width * 4;
 	uint32_t pixel_indices = 0;

@@ -133,7 +133,7 @@ static const detexCompressionInfo compression_info[] = {
 };
 
 static double detexCompressBlock(const detexCompressionInfo * DETEX_RESTRICT info,
-const detexTexture * DETEX_RESTRICT texture, int x, int y, int mode, dstCMWCRNG *rng,
+const detexBlockInfo * DETEX_RESTRICT block_info, dstCMWCRNG *rng,
 uint8_t * DETEX_RESTRICT bitstring_out, uint32_t output_format) {
 	uint8_t bitstring[16];
 //	uint8_t pixel_buffer[DETEX_MAX_BLOCK_SIZE];
@@ -145,12 +145,12 @@ uint8_t * DETEX_RESTRICT bitstring_out, uint32_t output_format) {
 	for (int generation = 0; generation < 2048 || last_improvement_generation > generation - 384;) {
 		if (generation < 256) {
 			// For the first 256 iterations, use the seeding function.
-			info->seed_func(texture, x, y, rng, mode, 0, NULL, bitstring);
+			info->seed_func(block_info, rng, bitstring);
 		}
 		else {
 			// From iteration 256, use mutation.
 			memcpy(bitstring, bitstring_out, compressed_block_size);
-			info->mutate_func(rng, generation, mode, bitstring);
+			info->mutate_func(block_info, rng, generation,bitstring);
 		}
 		uint32_t error_uint32;
 		uint64_t error_uint64;
@@ -160,7 +160,7 @@ uint8_t * DETEX_RESTRICT bitstring_out, uint32_t output_format) {
 //			if (mode >= 0 && info->get_mode_func(bitstring) != mode)
 //				error_uint32 = UINT_MAX;
 //			else
-				error_uint32 = info->set_pixels_error_uint32_func(texture, x, y, bitstring);
+				error_uint32 = info->set_pixels_error_uint32_func(block_info, bitstring);
 			is_better = (error_uint32 < best_error_uint32);
 			if (is_better)
 				best_error_uint32 = error_uint32;
@@ -171,14 +171,13 @@ uint8_t * DETEX_RESTRICT bitstring_out, uint32_t output_format) {
 #endif
 		}
 		else if (info->error_unit == DETEX_ERROR_UNIT_UINT64) {
-			error_uint64 = info->set_pixels_error_uint64_func(texture, x, y, bitstring);
-
+			error_uint64 = info->set_pixels_error_uint64_func(block_info, bitstring);
 			is_better = (error_uint64 < best_error_uint64);
 			if (is_better)
 				best_error_uint64 = error_uint64;
 		}
 		else if (info->error_unit == DETEX_ERROR_UNIT_DOUBLE) {
-			error_double = info->set_pixels_error_double_func(texture, x, y, bitstring);
+			error_double = info->set_pixels_error_double_func(block_info, bitstring);
 			is_better = (error_double < best_error_double);
 			if (is_better)
 				best_error_double = error_double;
@@ -217,6 +216,12 @@ static void *CompressBlocksThread(void *_thread_data) {
 	int block_size = detexGetCompressedBlockSize(thread_data->output_format);
 	for (int y = thread_data->y_start; y < thread_data->y_end; y += 4)
 		for (int x = 0; x < thread_data->x_end; x += 4) {
+			detexBlockInfo block_info;
+			block_info.texture = texture;
+			block_info.x = x;
+			block_info.y = y;
+			block_info.flags = 0;
+			block_info.colors = NULL;
 			// Calculate the block index.
 			int i = (y / 4) * (texture->width / 4) + x / 4;
 			double best_rmse = DBL_MAX;
@@ -226,9 +231,10 @@ static void *CompressBlocksThread(void *_thread_data) {
 					// Compress the block using each mode.
 					for (int mode = 0; mode < compression_info[compressed_format_index
 					- 1].nu_modes; mode++) {
+						block_info.mode = mode;
 						double rmse = detexCompressBlock(
 							&compression_info[compressed_format_index - 1],
-							texture, x, y, mode, thread_data->rng,
+							&block_info, thread_data->rng,
 							bitstring, thread_data->output_format);
 						if (rmse < best_rmse) {
 							best_rmse = rmse;
@@ -236,9 +242,10 @@ static void *CompressBlocksThread(void *_thread_data) {
 						}
 					}
 				else {
+					block_info.mode = -1;
 					double rmse = detexCompressBlock(
 						&compression_info[compressed_format_index - 1],
-						texture, x, y, -1, thread_data->rng,
+						&block_info, thread_data->rng,
 						bitstring, thread_data->output_format);
 					if (rmse < best_rmse) {
 						best_rmse = rmse;
