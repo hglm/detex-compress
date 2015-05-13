@@ -83,10 +83,10 @@ static const int8_t detex_bc1_mutation_table2[16][8] = {
 
 static const uint8_t detex_bc1_offset_random_bits_table[] = {
 	4, 4, 4, 4, 4, 4, 4, 4,	// Random 1 to 16, generation 128-1023 (unused)
-	4,			// Random 1 to 16, generation 1024-1279
-	3,			// Random 1 to 8, generation 1280-1535
-	2, 2,			// Random 1 to 4, generation 1536-1791
-	1, 1, 1, 1,		// Random 1 to 2, generation 1792-2043
+	4,			// Random 1 to 16, generation 1024-1151
+	3,			// Random 1 to 8, generation 1152-1279
+	2, 2,			// Random 1 to 4, generation 1280-1535
+	1, 1, 1, 1,		// Random 1 to 2, generation 1536-2043
 };
 
 void SeedBC1(const detexBlockInfo * DETEX_RESTRICT info, dstCMWCRNG *rng, uint8_t * DETEX_RESTRICT bitstring) {

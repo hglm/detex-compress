@@ -80,7 +80,7 @@ const uint8_t * DETEX_RESTRICT pix2, int pix2_stride, int dx, int dy, uint32_t &
 	}
 }
 
-static uint32_t detexCalculateErrorRGBA8(const detexTexture * DETEX_RESTRICT texture, int x, int y,
+uint32_t detexCalculateErrorRGBA8(const detexTexture * DETEX_RESTRICT texture, int x, int y,
 uint8_t * DETEX_RESTRICT pixel_buffer) {
 	uint8_t *pix1 = pixel_buffer;
 	uint8_t *pix2 = texture->data + (y * texture->width + x) * 4;
@@ -108,6 +108,7 @@ uint8_t * DETEX_RESTRICT pixel_buffer) {
 static const uint32_t supported_formats[] = {
 	DETEX_TEXTURE_FORMAT_BC1,
 	DETEX_TEXTURE_FORMAT_BC2,
+	DETEX_TEXTURE_FORMAT_BC3,
 };
 
 #define NU_SUPPORTED_FORMATS (sizeof(supported_formats) / sizeof(supported_formats[0]))
@@ -126,10 +127,13 @@ static const detexCompressionInfo compression_info[] = {
 	// BC1A
 	{ 2, true, DETEX_ERROR_UNIT_UINT32, NULL, NULL, NULL, NULL, NULL },
 	// BC2
-	// Use modal configuration with just one mode. This ensure the color definitions
+	// Use modal configuration with just one mode. This ensures the color definitions
 	// comply to mode 0, as required for BC2.
 	{ 1, true, DETEX_ERROR_UNIT_UINT32, SeedBC2, NULL, NULL,
 	MutateBC2, SetPixelsBC2, detexCalculateErrorRGBA8 },
+	// BC3
+	{ 2, true, DETEX_ERROR_UNIT_UINT32, SeedBC3, NULL, NULL,
+	MutateBC3, SetPixelsBC3, detexCalculateErrorRGBA8 },
 };
 
 static double detexCompressBlock(const detexCompressionInfo * DETEX_RESTRICT info,
@@ -187,10 +191,12 @@ uint8_t * DETEX_RESTRICT bitstring_out, uint32_t output_format) {
 			last_improvement_generation = generation;
 		}
 		generation++;
+		if (info->error_unit == DETEX_ERROR_UNIT_UINT32 && error_uint32 == 0)
+			break;
 	}
 	double rmse = sqrt((double)best_error_uint32 / 16.0d);
 #ifdef VERBOSE
-	printf("Block RMSE (mode %d): %.3f\n", mode, rmse);
+	printf("Block RMSE (mode %d): %.3f\n", block_info->mode, rmse);
 #endif
 	return rmse;
 }
@@ -239,6 +245,8 @@ static void *CompressBlocksThread(void *_thread_data) {
 						if (rmse < best_rmse) {
 							best_rmse = rmse;
 							memcpy(&pixel_buffer[i * block_size], bitstring, block_size);
+							if (rmse == 0.0d)
+								break;
 						}
 					}
 				else {
@@ -252,6 +260,8 @@ static void *CompressBlocksThread(void *_thread_data) {
 						memcpy(&pixel_buffer[i * block_size], bitstring, block_size);
 					}
 				}
+				if (best_rmse == 0.0d)
+					break;
 			}
 		}
 	return NULL;
