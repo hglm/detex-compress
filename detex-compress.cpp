@@ -91,6 +91,7 @@ static const uint32_t supported_formats_compression[] = {
 	DETEX_TEXTURE_FORMAT_BC2,
 	DETEX_TEXTURE_FORMAT_BC3,
 	DETEX_TEXTURE_FORMAT_RGTC1,
+	DETEX_TEXTURE_FORMAT_RGTC2,
 };
 
 #define NU_SUPPORTED_FORMATS_COMPRESSION (sizeof(supported_formats_compression) \
