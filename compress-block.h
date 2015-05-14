@@ -63,13 +63,11 @@ static DETEX_INLINE_ONLY uint32_t GetPixelErrorRGB8(int r1, int g1, int b1, int 
 uint32_t detexCalculateErrorRGBA8(const detexTexture *texture, int x, int y, uint8_t *pixel_buffer);
 
 // BC1
-
 void SeedBC1(const detexBlockInfo *info, dstCMWCRNG *rng, uint8_t *bitstring);
 void MutateBC1(const detexBlockInfo *info, dstCMWCRNG *rng, int generation, uint8_t *bitstring);
 uint32_t SetPixelsBC1(const detexBlockInfo *info, uint8_t *bitstring);
 
 // BC2
-
 void SeedBC2(const detexBlockInfo *info, dstCMWCRNG *rng, uint8_t *bitstring);
 void MutateBC2(const detexBlockInfo *info, dstCMWCRNG *rng, int generation, uint8_t *bitstring);
 uint32_t SetPixelsBC2(const detexBlockInfo *info, uint8_t *bitstring);
@@ -78,4 +76,9 @@ uint32_t SetPixelsBC2(const detexBlockInfo *info, uint8_t *bitstring);
 void SeedBC3(const detexBlockInfo *info, dstCMWCRNG *rng, uint8_t *bitstring);
 void MutateBC3(const detexBlockInfo *info, dstCMWCRNG *rng, int generation, uint8_t *bitstring);
 uint32_t SetPixelsBC3(const detexBlockInfo *info, uint8_t *bitstring);
+
+// BC4/RGTC1
+void SeedRGTC1(const detexBlockInfo *info, dstCMWCRNG *rng, uint8_t *bitstring);
+void MutateRGTC1(const detexBlockInfo *info, dstCMWCRNG *rng, int generation, uint8_t *bitstring);
+uint32_t SetPixelsRGTC1(const detexBlockInfo *info, uint8_t *bitstring);
 

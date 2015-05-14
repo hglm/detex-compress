@@ -90,6 +90,7 @@ static const uint32_t supported_formats_compression[] = {
 	DETEX_TEXTURE_FORMAT_BC1,
 	DETEX_TEXTURE_FORMAT_BC2,
 	DETEX_TEXTURE_FORMAT_BC3,
+	DETEX_TEXTURE_FORMAT_RGTC1,
 };
 
 #define NU_SUPPORTED_FORMATS_COMPRESSION (sizeof(supported_formats_compression) \
@@ -398,13 +399,14 @@ int main(int argc, char **argv) {
 				detexTexture *adjusted_input_texture;
 				adjusted_input_texture = (detexTexture *)malloc(sizeof(detexTexture));
 				*adjusted_input_texture = *input_textures[i];
-				if (input_textures[i]->format != DETEX_PIXEL_FORMAT_RGBX8) {
+				uint32_t pixel_format_for_compression = detexGetPixelFormat(output_format);
+				if (input_textures[i]->format != pixel_format_for_compression) {
 					adjusted_input_texture->data = (uint8_t *)malloc(
-						detexGetPixelSize(DETEX_PIXEL_FORMAT_RGBX8) *
+						detexGetPixelSize(pixel_format_for_compression) *
 						input_textures[i]->width * input_textures[i]->height);
 					bool r = detexConvertPixels(input_textures[i]->data, input_textures[i]->width *
 						input_textures[i]->height, input_textures[i]->format,
-						adjusted_input_texture->data, DETEX_PIXEL_FORMAT_RGBX8);
+						adjusted_input_texture->data, pixel_format_for_compression);
 					if (!r)
 						FatalError("%s\n", detexGetErrorMessage());
 				}
@@ -426,7 +428,7 @@ int main(int argc, char **argv) {
 					&average_rmse, &rmse_sd);
 				Message("Root-mean-square error (RMSE) per pixel: %.3f\n", rmse);
 				Message("Block RMSE average: %.3f, SD: %.3f\n", average_rmse, rmse_sd);
-				if (input_textures[i]->format != DETEX_PIXEL_FORMAT_RGBX8)
+				if (input_textures[i]->format != pixel_format_for_compression)
 					free(adjusted_input_texture->data);
 				free(adjusted_input_texture);
 			}

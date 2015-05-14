@@ -15,7 +15,7 @@ CPPFLAGS = -std=c++98 -Wall -Wno-maybe-uninitialized -pipe -I. $(OPTCFLAGS)
 CPPFLAGS += -DDETEX_COMPRESS_VERSION=\"v$(VERSION)\"
 
 MODULE_OBJECTS = detex-compress.o compress.o png.o mipmaps.o compress-bc1.o \
-	compress-bc2-bc3.o
+	compress-bc2-bc3.o compress-rgtc.o
 PROGRAMS = detex-compress
 
 default : detex-compress

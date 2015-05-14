@@ -105,10 +105,43 @@ uint8_t * DETEX_RESTRICT pixel_buffer) {
 	return error;
 }
 
+static DETEX_INLINE_ONLY void AddErrorPixelXYR8(const uint8_t * DETEX_RESTRICT pix1,
+const uint8_t * DETEX_RESTRICT pix2, int pix2_stride, int dx, int dy, uint32_t & DETEX_RESTRICT error) {
+	uint32_t r1 = *(pix1 + (dy * 4 + dx));
+	uint32_t r2 = *(pix2 + dy * pix2_stride + dx);
+	error += (r1 - r2) * (r1 - r2);
+}
+
+uint32_t detexCalculateErrorR8(const detexTexture * DETEX_RESTRICT texture, int x, int y,
+uint8_t * DETEX_RESTRICT pixel_buffer) {
+	uint8_t *pix1 = pixel_buffer;
+	uint8_t *pix2 = texture->data + (y * texture->width + x);
+	int pix2_stride = texture->width;
+	uint32_t error = 0;
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 0, 0, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 1, 0, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 2, 0, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 3, 0, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 0, 1, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 1, 1, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 2, 1, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 3, 1, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 0, 2, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 1, 2, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 2, 2, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 3, 2, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 0, 3, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 1, 3, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 2, 3, error);
+	AddErrorPixelXYR8(pix1, pix2, pix2_stride, 3, 3, error);
+	return error;
+}
+
 static const uint32_t supported_formats[] = {
 	DETEX_TEXTURE_FORMAT_BC1,
 	DETEX_TEXTURE_FORMAT_BC2,
 	DETEX_TEXTURE_FORMAT_BC3,
+	DETEX_TEXTURE_FORMAT_RGTC1,
 };
 
 #define NU_SUPPORTED_FORMATS (sizeof(supported_formats) / sizeof(supported_formats[0]))
@@ -134,6 +167,9 @@ static const detexCompressionInfo compression_info[] = {
 	// BC3
 	{ 2, true, DETEX_ERROR_UNIT_UINT32, SeedBC3, NULL, NULL,
 	MutateBC3, SetPixelsBC3, detexCalculateErrorRGBA8 },
+	// RGTC1
+	{ 2, true, DETEX_ERROR_UNIT_UINT32, SeedRGTC1, NULL, NULL,
+	MutateRGTC1, SetPixelsRGTC1, detexCalculateErrorR8 },
 };
 
 static double detexCompressBlock(const detexCompressionInfo * DETEX_RESTRICT info,
