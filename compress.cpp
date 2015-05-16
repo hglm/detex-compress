@@ -112,7 +112,7 @@ const uint8_t * DETEX_RESTRICT pix2, int pix2_stride, int dx, int dy, uint32_t &
 	error += (r1 - r2) * (r1 - r2);
 }
 
-uint32_t detexCalculateErrorR8(const detexTexture * DETEX_RESTRICT texture, int x, int y,
+static uint32_t detexCalculateErrorR8(const detexTexture * DETEX_RESTRICT texture, int x, int y,
 uint8_t * DETEX_RESTRICT pixel_buffer) {
 	uint8_t *pix1 = pixel_buffer;
 	uint8_t *pix2 = texture->data + (y * texture->width + x);
@@ -144,7 +144,7 @@ const uint8_t * DETEX_RESTRICT pix2, int pix2_stride, int dx, int dy, uint64_t &
 	error += (r1 - r2) * (r1 - r2);
 }
 
-uint64_t detexCalculateErrorSignedR16(const detexTexture * DETEX_RESTRICT texture, int x, int y,
+static uint64_t detexCalculateErrorSignedR16(const detexTexture * DETEX_RESTRICT texture, int x, int y,
 uint8_t * DETEX_RESTRICT pixel_buffer) {
 	uint8_t *pix1 = pixel_buffer;
 	uint8_t *pix2 = texture->data + (y * texture->width + x) * 2;
@@ -179,7 +179,7 @@ const uint8_t * DETEX_RESTRICT pix2, int pix2_stride, int dx, int dy, uint32_t &
 	error += (g1 - g2) * (g1 - g2);
 }
 
-uint32_t detexCalculateErrorRG8(const detexTexture * DETEX_RESTRICT texture, int x, int y,
+static uint32_t detexCalculateErrorRG8(const detexTexture * DETEX_RESTRICT texture, int x, int y,
 uint8_t * DETEX_RESTRICT pixel_buffer) {
 	uint8_t *pix1 = pixel_buffer;
 	uint8_t *pix2 = texture->data + (y * texture->width + x) * 2;
@@ -214,7 +214,7 @@ const uint8_t * DETEX_RESTRICT pix2, int pix2_stride, int dx, int dy, uint64_t &
 	error += (int64_t)(g2 - g2) * (g1 - g2);
 }
 
-uint64_t detexCalculateErrorSignedRG16(const detexTexture * DETEX_RESTRICT texture, int x, int y,
+static uint64_t detexCalculateErrorSignedRG16(const detexTexture * DETEX_RESTRICT texture, int x, int y,
 uint8_t * DETEX_RESTRICT pixel_buffer) {
 	uint8_t *pix1 = pixel_buffer;
 	uint8_t *pix2 = texture->data + (y * texture->width + x) * 4;
@@ -258,34 +258,99 @@ bool detexCompressionSupported(uint32_t format) {
 	return false;
 }
 
+static const int detex_modes_0[2] = { 0, -1 };
+
+static const int detex_modes_01[3] = { 0, 1, -1 };
+
+static const int *detexGetModes0(detexBlockInfo *block_info) {
+	return detex_modes_0;
+}
+
+static const int *detexGetModes01(detexBlockInfo *block_info) {
+	return detex_modes_01;
+}
+
 static const detexCompressionInfo compression_info[] = {
 	// BC1
-	{ 2, true, DETEX_ERROR_UNIT_UINT32, SeedBC1, detexGetModeBC1, detexSetModeBC1,
+	{ 2, true, detexGetModes01, DETEX_ERROR_UNIT_UINT32, SeedBC1, detexSetModeBC1,
 	MutateBC1, SetPixelsBC1, detexCalculateErrorRGBX8 },
 	// BC1A
-	{ 2, true, DETEX_ERROR_UNIT_UINT32, NULL, NULL, NULL, NULL, NULL },
+	{ 2, true, detexGetModes01, DETEX_ERROR_UNIT_UINT32, NULL, NULL, NULL, NULL },
 	// BC2
 	// Use modal configuration with just one mode. This ensures the color definitions
 	// comply to mode 0, as required for BC2.
-	{ 1, true, DETEX_ERROR_UNIT_UINT32, SeedBC2, NULL, NULL,
+	{ 1, true, detexGetModes0, DETEX_ERROR_UNIT_UINT32, SeedBC2, NULL,
 	MutateBC2, SetPixelsBC2, detexCalculateErrorRGBA8 },
 	// BC3
-	{ 2, true, DETEX_ERROR_UNIT_UINT32, SeedBC3, NULL, NULL,
+	{ 2, true, detexGetModes01, DETEX_ERROR_UNIT_UINT32, SeedBC3, NULL,
 	MutateBC3, SetPixelsBC3, detexCalculateErrorRGBA8 },
 	// RGTC1
-	{ 2, true, DETEX_ERROR_UNIT_UINT32, SeedRGTC1, NULL, NULL,
+	{ 2, true, detexGetModes01, DETEX_ERROR_UNIT_UINT32, SeedRGTC1, NULL,
 	MutateRGTC1, SetPixelsRGTC1, detexCalculateErrorR8 },
 	// SIGNED_RGTC1
-	{ 2, true, DETEX_ERROR_UNIT_UINT64, SeedSignedRGTC1, NULL, NULL,
+	{ 2, true, detexGetModes01, DETEX_ERROR_UNIT_UINT64, SeedSignedRGTC1, NULL,
 	MutateSignedRGTC1, (detexSetPixelsFunc)SetPixelsSignedRGTC1,
 	(detexCalculateErrorFunc)detexCalculateErrorSignedR16 },
 	// RGTC2
-	{ 4, true, DETEX_ERROR_UNIT_UINT32, NULL, NULL, NULL,
+	{ 4, true, detexGetModes01, DETEX_ERROR_UNIT_UINT32, NULL, NULL,
 	NULL, NULL, detexCalculateErrorRG8 },
 	// SIGNED_RGTC2
-	{ 4, true, DETEX_ERROR_UNIT_UINT64, NULL, NULL, NULL,
+	{ 4, true, detexGetModes01, DETEX_ERROR_UNIT_UINT64, NULL, NULL,
 	NULL, NULL, (detexCalculateErrorFunc)detexCalculateErrorSignedRG16 },
 };
+
+// Determine block flags for RGBA8/RGBX8 block (whether it is completely opaque or non-opaque,
+// whether it uses only a limited amount of colors).
+static void SetBlockFlags(detexBlockInfo *block_info, uint32_t format) {
+	block_info->colors = NULL;
+	if (format == DETEX_PIXEL_FORMAT_RGBA8)
+		block_info->flags = DETEX_BLOCK_FLAG_OPAQUE | DETEX_BLOCK_FLAG_NON_OPAQUE | DETEX_BLOCK_FLAG_PUNCHTHROUGH |
+			DETEX_BLOCK_FLAG_MAX_TWO_COLORS;
+	else if (format == DETEX_PIXEL_FORMAT_RGBX8)
+		block_info->flags = DETEX_BLOCK_FLAG_OPAQUE | DETEX_BLOCK_FLAG_PUNCHTHROUGH |
+			 DETEX_BLOCK_FLAG_MAX_TWO_COLORS;
+	else {
+		if (detexFormatHasAlpha(format))
+			block_info->flags = 0; 
+		else 
+			block_info->flags = DETEX_BLOCK_FLAG_OPAQUE | DETEX_BLOCK_FLAG_PUNCHTHROUGH;
+		return;
+	}
+	int color0 = - 1;
+	int color1 = - 1;
+	for (int by = 0; by < 4; by++)
+		for (int bx = 0; bx < 4; bx++) {
+			uint32_t pixel = *(uint32_t *)(block_info->texture->data +
+				((block_info->y + by) * block_info->texture->width + block_info->x + bx) * 4);
+			if (format == DETEX_PIXEL_FORMAT_RGBA8) {
+				int alpha = detexPixel32GetA8(pixel);
+				if (alpha == 0xFF)
+					block_info->flags &= (~DETEX_BLOCK_FLAG_NON_OPAQUE);
+				else {
+					block_info->flags &= (~DETEX_BLOCK_FLAG_OPAQUE);
+					if (alpha != 0x00)
+						block_info->flags &= (~DETEX_BLOCK_FLAG_PUNCHTHROUGH);
+				}
+			}
+			int rgb = pixel & 0xFFFFFF;
+			if (color0 == - 1)
+				color0 = rgb;
+			else if (rgb != color0) {
+				if (color1 == - 1)
+					color1 = rgb;
+				else if (rgb != color1)
+					block_info->flags &= (~DETEX_BLOCK_FLAG_MAX_TWO_COLORS);
+			}
+		}
+	if (block_info->flags & DETEX_BLOCK_FLAG_MAX_TWO_COLORS) {
+		block_info->colors[0] = color0;
+		if (color1 == - 1)
+			block_info->colors[1] = block_info->colors[0];
+		else
+			block_info->colors[1] = color1;
+	}
+}
+
 
 static double detexCompressBlock(const detexCompressionInfo * DETEX_RESTRICT info,
 const detexBlockInfo * DETEX_RESTRICT block_info, dstCMWCRNG *rng,
@@ -374,17 +439,18 @@ static void *CompressBlocksThread(void *_thread_data) {
 			block_info.texture = texture;
 			block_info.x = x;
 			block_info.y = y;
-			block_info.flags = 0;
-			block_info.colors = NULL;
+			SetBlockFlags(&block_info, texture->format);
 			// Calculate the block index.
 			int i = (y / 4) * (texture->width / 4) + x / 4;
 			double best_rmse = DBL_MAX;
 			for (int j = 0; j < thread_data->nu_tries; j++) {
 				uint8_t bitstring[16];
-				if (thread_data->modal)
+				if (thread_data->modal) {
 					// Compress the block using each mode.
-					for (int mode = 0; mode < compression_info[compressed_format_index
-					- 1].nu_modes; mode++) {
+					const int *modesp = compression_info[compressed_format_index - 1].get_modes_func(
+						&block_info);
+					int mode;
+					for (;mode = *modesp, mode >= 0; modesp++) {
 						block_info.mode = mode;
 						double rmse = detexCompressBlock(
 							&compression_info[compressed_format_index - 1],
@@ -397,6 +463,7 @@ static void *CompressBlocksThread(void *_thread_data) {
 								break;
 						}
 					}
+				}
 				else {
 					block_info.mode = -1;
 					double rmse = detexCompressBlock(

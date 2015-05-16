@@ -18,6 +18,18 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 // Definitions for block compression modules.
 
+enum {
+	/* The block is opaque (alpha is always 0xFF). */
+	DETEX_BLOCK_FLAG_OPAQUE = 0x2,
+	/* The block is non-opaque (alpha is not always 0xFF). */
+	DETEX_BLOCK_FLAG_NON_OPAQUE = 0x4,
+	/* The block has punchthrough alpha (alpha is either 0x00 or 0xFF). */
+	DETEX_BLOCK_FLAG_PUNCHTHROUGH = 0x8,
+	/* The block only consists of one or two different pixel colors. */
+	DETEX_BLOCK_FLAG_MAX_TWO_COLORS = 0x10,
+};
+
+
 struct detexBlockInfo {
 	const detexTexture * DETEX_RESTRICT texture;
 	int x;
@@ -39,9 +51,9 @@ typedef uint32_t (*detexCalculateErrorFunc)(const detexTexture *texture, int x, 
 struct detexCompressionInfo {
 	int nu_modes;
 	bool modal_default;
+	const int *(*get_modes_func)(detexBlockInfo *block_info);
 	detexErrorUnit error_unit;
 	void (*seed_func)(const detexBlockInfo *block_info, dstCMWCRNG *rng, uint8_t *bitstring);
-	uint32_t (*get_mode_func)(const uint8_t *bitstring);
 	void (*set_mode_func)(uint8_t *bitstring, uint32_t mode, uint32_t flags, uint32_t *colors);
 	void (*mutate_func)(const detexBlockInfo *block_info, dstCMWCRNG *rng, int generation, uint8_t *bitstring);
 	union {
