@@ -137,6 +137,38 @@ uint8_t * DETEX_RESTRICT pixel_buffer) {
 	return error;
 }
 
+static DETEX_INLINE_ONLY void AddErrorPixelXYSignedR16(const uint8_t * DETEX_RESTRICT pix1,
+const uint8_t * DETEX_RESTRICT pix2, int pix2_stride, int dx, int dy, uint64_t & DETEX_RESTRICT error) {
+	int r1 = *(int16_t *)(pix1 + (dy * 4 + dx) * 2);
+	int r2 = *(int16_t *)(pix2 + dy * pix2_stride + dx * 2);
+	error += (r1 - r2) * (r1 - r2);
+}
+
+uint64_t detexCalculateErrorSignedR16(const detexTexture * DETEX_RESTRICT texture, int x, int y,
+uint8_t * DETEX_RESTRICT pixel_buffer) {
+	uint8_t *pix1 = pixel_buffer;
+	uint8_t *pix2 = texture->data + (y * texture->width + x) * 2;
+	int pix2_stride = texture->width * 2;
+	uint64_t error = 0;
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 0, 0, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 1, 0, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 2, 0, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 3, 0, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 0, 1, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 1, 1, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 2, 1, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 3, 1, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 0, 2, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 1, 2, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 2, 2, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 3, 2, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 0, 3, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 1, 3, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 2, 3, error);
+	AddErrorPixelXYSignedR16(pix1, pix2, pix2_stride, 3, 3, error);
+	return error;
+}
+
 static DETEX_INLINE_ONLY void AddErrorPixelXYRG8(const uint8_t * DETEX_RESTRICT pix1,
 const uint8_t * DETEX_RESTRICT pix2, int pix2_stride, int dx, int dy, uint32_t & DETEX_RESTRICT error) {
 	uint32_t r1 = *(pix1 + (dy * 4 + dx) * 2);
@@ -172,12 +204,49 @@ uint8_t * DETEX_RESTRICT pixel_buffer) {
 	return error;
 }
 
+static DETEX_INLINE_ONLY void AddErrorPixelXYSignedRG16(const uint8_t * DETEX_RESTRICT pix1,
+const uint8_t * DETEX_RESTRICT pix2, int pix2_stride, int dx, int dy, uint64_t & DETEX_RESTRICT error) {
+	int r1 = *(int16_t *)(pix1 + (dy * 4 + dx) * 4);
+	int r2 = *(int16_t *)(pix2 + dy * pix2_stride + dx * 4);
+	int g1 = *(int16_t *)(pix1 + (dy * 4 + dx) * 4 + 2);
+	int g2 = *(int16_t *)(pix2 + dy * pix2_stride + dx * 4 + 2);
+	error += (int64_t)(r1 - r2) * (r1 - r2);
+	error += (int64_t)(g2 - g2) * (g1 - g2);
+}
+
+uint64_t detexCalculateErrorSignedRG16(const detexTexture * DETEX_RESTRICT texture, int x, int y,
+uint8_t * DETEX_RESTRICT pixel_buffer) {
+	uint8_t *pix1 = pixel_buffer;
+	uint8_t *pix2 = texture->data + (y * texture->width + x) * 4;
+	int pix2_stride = texture->width * 4;
+	uint64_t error = 0;
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 0, 0, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 1, 0, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 2, 0, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 3, 0, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 0, 1, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 1, 1, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 2, 1, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 3, 1, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 0, 2, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 1, 2, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 2, 2, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 3, 2, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 0, 3, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 1, 3, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 2, 3, error);
+	AddErrorPixelXYSignedRG16(pix1, pix2, pix2_stride, 3, 3, error);
+	return error;
+}
+
 static const uint32_t supported_formats[] = {
 	DETEX_TEXTURE_FORMAT_BC1,
 	DETEX_TEXTURE_FORMAT_BC2,
 	DETEX_TEXTURE_FORMAT_BC3,
 	DETEX_TEXTURE_FORMAT_RGTC1,
-	DETEX_TEXTURE_FORMAT_RGTC2
+	DETEX_TEXTURE_FORMAT_SIGNED_RGTC1,
+	DETEX_TEXTURE_FORMAT_RGTC2,
+	DETEX_TEXTURE_FORMAT_SIGNED_RGTC2,
 };
 
 #define NU_SUPPORTED_FORMATS (sizeof(supported_formats) / sizeof(supported_formats[0]))
@@ -207,11 +276,15 @@ static const detexCompressionInfo compression_info[] = {
 	{ 2, true, DETEX_ERROR_UNIT_UINT32, SeedRGTC1, NULL, NULL,
 	MutateRGTC1, SetPixelsRGTC1, detexCalculateErrorR8 },
 	// SIGNED_RGTC1
-	{ 2, true, DETEX_ERROR_UNIT_UINT32, NULL, NULL, NULL,
-	NULL, NULL, NULL },
+	{ 2, true, DETEX_ERROR_UNIT_UINT64, SeedSignedRGTC1, NULL, NULL,
+	MutateSignedRGTC1, (detexSetPixelsFunc)SetPixelsSignedRGTC1,
+	(detexCalculateErrorFunc)detexCalculateErrorSignedR16 },
 	// RGTC2
 	{ 4, true, DETEX_ERROR_UNIT_UINT32, NULL, NULL, NULL,
 	NULL, NULL, detexCalculateErrorRG8 },
+	// SIGNED_RGTC2
+	{ 4, true, DETEX_ERROR_UNIT_UINT64, NULL, NULL, NULL,
+	NULL, NULL, (detexCalculateErrorFunc)detexCalculateErrorSignedRG16 },
 };
 
 static double detexCompressBlock(const detexCompressionInfo * DETEX_RESTRICT info,
@@ -239,10 +312,7 @@ uint8_t * DETEX_RESTRICT bitstring_out, uint32_t output_format) {
 		double error_double;
 		bool is_better;
 		if (info->error_unit == DETEX_ERROR_UNIT_UINT32) {
-//			if (mode >= 0 && info->get_mode_func(bitstring) != mode)
-//				error_uint32 = UINT_MAX;
-//			else
-				error_uint32 = info->set_pixels_error_uint32_func(block_info, bitstring);
+			error_uint32 = info->set_pixels_error_uint32_func(block_info, bitstring);
 			is_better = (error_uint32 < best_error_uint32);
 			if (is_better)
 				best_error_uint32 = error_uint32;
@@ -377,6 +447,34 @@ uint8_t * DETEX_RESTRICT pixel_buffer, uint32_t output_format) {
 		free(temp_pixel_buffer);
 		return true;
 	}
+	else if (output_format == DETEX_TEXTURE_FORMAT_SIGNED_RGTC2) {
+		// The input texture is in format DETEX_PIXEL_FORMAT_SIGNED_RG16.
+		// Create a temporary texture with just the red components.
+		int nu_pixels = texture->width * texture->height;
+		detexTexture temp_texture = *texture;
+		temp_texture.format = DETEX_PIXEL_FORMAT_SIGNED_R16;
+		temp_texture.data = (uint8_t *)malloc(nu_pixels * 2);
+		for (int i = 0; i < nu_pixels; i++)
+			*(int16_t *)(temp_texture.data + i * 2) = *(int16_t *)(texture->data + i * 4);
+		int nu_blocks = texture->width * texture->height / 16;
+		uint8_t *temp_pixel_buffer = (uint8_t *)malloc(nu_blocks * 8);
+		// Compress the red components.
+		detexCompressTexture(nu_tries, modal, max_threads, &temp_texture, temp_pixel_buffer,
+			DETEX_TEXTURE_FORMAT_SIGNED_RGTC1);
+		for (int i = 0; i < nu_blocks; i++)
+			*(uint64_t *)(pixel_buffer + i * 16) = *(uint64_t *)(temp_pixel_buffer + i * 8);
+		// Create a temporary texture with just the green components.
+		for (int i = 0; i < nu_pixels; i++)
+			*(int16_t *)(temp_texture.data + i * 2) = *(int16_t *)(texture->data + i * 4 + 2);
+		// Compress the green components.
+		detexCompressTexture(nu_tries, modal, max_threads, &temp_texture, temp_pixel_buffer,
+			DETEX_TEXTURE_FORMAT_SIGNED_RGTC1);
+		free(temp_texture.data);
+		for (int i = 0; i < nu_blocks; i++)
+			*(uint64_t *)(pixel_buffer + i * 16 + 8) = *(uint64_t *)(temp_pixel_buffer + i * 8);
+		free(temp_pixel_buffer);
+		return true;
+	}
 	// Calculate the number of blocks.
 	int nu_blocks = (texture->height / 4) * (texture->width / 4);
 	int nu_threads;
@@ -448,12 +546,18 @@ detexTexture * DETEX_RESTRICT compressed_texture, double *average_rmse, double *
 				total_error += error;
 				block_rmse[i] = sqrt(error / 16);
 			}
-			else if (info->error_unit == DETEX_ERROR_UNIT_UINT64)
-				total_error += info->calculate_error_uint64_func(input_texture, x, y,
+			else if (info->error_unit == DETEX_ERROR_UNIT_UINT64) {
+				uint64_t error = info->calculate_error_uint64_func(input_texture, x, y,
 					pixel_buffer);
-			else if (info->error_unit == DETEX_ERROR_UNIT_DOUBLE)
-				total_error += info->calculate_error_double_func(input_texture, x, y,
+				total_error += error;
+				block_rmse[i] = sqrt(error / 16);
+			}
+			else if (info->error_unit == DETEX_ERROR_UNIT_DOUBLE) {
+				double error = info->calculate_error_double_func(input_texture, x, y,
 					pixel_buffer);
+				total_error += error;
+				block_rmse[i] = sqrt(error / 16);
+			}
 		}
 	int nu_pixels = compressed_texture->width * compressed_texture->height;
 	double rmse = sqrt(total_error / nu_pixels);

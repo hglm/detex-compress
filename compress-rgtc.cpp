@@ -32,15 +32,15 @@ uint8_t * DETEX_RESTRICT bitstring) {
 	*(uint16_t *)(bitstring) = red_values;
 }
 
-static const uint32_t detex_bc4_component_mask[6] = {
+static const uint32_t detex_rgtc1_component_mask[6] = {
 	0xFF, 0xFF00
 };
 
-static const uint8_t detex_bc4_component_shift[6] = {
+static const uint8_t detex_rgtc1_component_shift[6] = {
 	0, 8
 };
 
-static const int8_t detex_bc4_mutation_table1[8][3] = {
+static const int8_t detex_rgtc1_mutation_table1[8][3] = {
 	{ 0, -1, 0 },	// red0
 	{ 0, -1, 0 },	// red0
 	{ 0, -1, 0 },	// red0
@@ -51,7 +51,7 @@ static const int8_t detex_bc4_mutation_table1[8][3] = {
 	{ 0, 1, -1 },	// red0, red1
 };
 
-static const uint8_t detex_bc4_offset_random_bits_table[] = {
+static const uint8_t detex_rgtc1_offset_random_bits_table[] = {
 	6, 6, 6, 6, 6, 6, 6, 6,	// Random 1 to 64, generation 128-1023 (unused)
 	6,			// Random 1 to 64, generation 1024-1151
 	5,			// Random 1 to 32, generation 1152-1280
@@ -71,14 +71,14 @@ uint8_t * DETEX_RESTRICT bitstring) {
 		// value.
 		for (;;) {
 			int mutation_type = rng->RandomBits(3);
-			const int8_t *mutationp = detex_bc4_mutation_table1[mutation_type];
+			const int8_t *mutationp = detex_rgtc1_mutation_table1[mutation_type];
 			for (;*mutationp >= 0; mutationp++) {
 				int component = *mutationp;
-				uint32_t mask = detex_bc4_component_mask[component];
+				uint32_t mask = detex_rgtc1_component_mask[component];
 				// Set the component to a random value.
 				int value = rng->RandomBits(8);
 				red_values &= ~mask;
-				red_values |= value << detex_bc4_component_shift[component];
+				red_values |= value << detex_rgtc1_component_shift[component];
 			}
 			int m = (red_values & 0xFF) <= (red_values >> 8);
 			if (info->mode < 0 || m == info->mode)
@@ -93,14 +93,14 @@ uint8_t * DETEX_RESTRICT bitstring) {
 		generation_table_index = 15;
 	for (;;) {
 		int mutation_type = rng->RandomBits(3);
-		const int8_t *mutationp = detex_bc4_mutation_table1[mutation_type];
+		const int8_t *mutationp = detex_rgtc1_mutation_table1[mutation_type];
 		for (;*mutationp >= 0; mutationp++) {
 			int component = *mutationp;
-			uint32_t mask = detex_bc4_component_mask[component];
-			int value = (red_values & mask) >> detex_bc4_component_shift[component];
+			uint32_t mask = detex_rgtc1_component_mask[component];
+			int value = (red_values & mask) >> detex_rgtc1_component_shift[component];
 			int offset;
 			int sign_bit;
-			int offset_random_bits = detex_bc4_offset_random_bits_table[generation_table_index];
+			int offset_random_bits = detex_rgtc1_offset_random_bits_table[generation_table_index];
 			int rnd = rng->RandomBits(offset_random_bits + 1);
 			sign_bit = rnd & 1;
 			offset = (rnd >> 1) + 1;
@@ -116,7 +116,7 @@ uint8_t * DETEX_RESTRICT bitstring) {
 					value = 0;
 			}
 			red_values &= ~mask;
-			red_values |= value << detex_bc4_component_shift[component];
+			red_values |= value << detex_rgtc1_component_shift[component];
 		}
 		int m = (red_values & 0xFF) <= (red_values >> 8);
 		if (info->mode < 0 || m == info->mode)
@@ -188,6 +188,165 @@ uint32_t SetPixelsRGTC1(const detexBlockInfo * DETEX_RESTRICT info, uint8_t * DE
 	error += SetPixelXYRGTC1(pix_orig, stride_orig, 1, 3, red, red_pixel_indices);
 	error += SetPixelXYRGTC1(pix_orig, stride_orig, 2, 3, red, red_pixel_indices);
 	error += SetPixelXYRGTC1(pix_orig, stride_orig, 3, 3, red, red_pixel_indices);
+	*(uint64_t *)bitstring = *(uint16_t *)bitstring | (red_pixel_indices << 16);
+	return error;
+}
+
+void SeedSignedRGTC1(const detexBlockInfo * DETEX_RESTRICT info, dstCMWCRNG * DETEX_RESTRICT rng,
+uint8_t * DETEX_RESTRICT bitstring) {
+	uint32_t red_values;
+	do {
+		red_values = rng->RandomBits(16);
+	}
+	while ((red_values & 0xFF) == 0xFF || (red_values >> 8) == 0xFF); // red0 == -128 or red1 == -128 not allowed.
+	// Set the mode for RGTC1.
+	if (info->mode >= 0) {
+		int m = (red_values & 0xFF) <= (red_values >> 8);
+		if (m != info->mode)
+			red_values = ((red_values & 0xFF) << 8) | (red_values >> 8);
+	}
+	*(uint16_t *)(bitstring) = red_values;
+}
+
+void MutateSignedRGTC1(const detexBlockInfo * DETEX_RESTRICT info, dstCMWCRNG * DETEX_RESTRICT rng, int generation,
+uint8_t * DETEX_RESTRICT bitstring) {
+	// Mutate red base values.
+	uint16_t *bitstring16 = (uint16_t *)bitstring;
+	uint32_t red_values = *bitstring16;
+	if (generation < 1024) {
+		// For generations < 1024, replace components entirely with a random
+		// value.
+		for (;;) {
+			int mutation_type = rng->RandomBits(3);
+			const int8_t *mutationp = detex_rgtc1_mutation_table1[mutation_type];
+			for (;*mutationp >= 0; mutationp++) {
+				int component = *mutationp;
+				uint32_t mask = detex_rgtc1_component_mask[component];
+				// Set the component to a random value.
+				int value = rng->RandomBits(8);
+				red_values &= ~mask;
+				red_values |= value << detex_rgtc1_component_shift[component];
+			}
+			if ((red_values & 0xFF) == 0xFF || (red_values >> 8) == 0xFF)
+				// red0 or red1 value of -128 not allowed.
+				continue;
+			int m = (red_values & 0xFF) <= (red_values >> 8);
+			if (info->mode < 0 || m == info->mode)
+				break;
+		}
+		*(uint16_t *)bitstring16 = red_values;
+		return;
+	}
+	// For generations >= 1024, apply diminishing random offset to components.
+	int generation_table_index = generation / 128;
+	if (generation_table_index > 15)
+		generation_table_index = 15;
+	for (;;) {
+		int mutation_type = rng->RandomBits(3);
+		const int8_t *mutationp = detex_rgtc1_mutation_table1[mutation_type];
+		for (;*mutationp >= 0; mutationp++) {
+			int component = *mutationp;
+			uint32_t mask = detex_rgtc1_component_mask[component];
+			int value = (int8_t)((red_values & mask) >> detex_rgtc1_component_shift[component]);
+			int offset;
+			int sign_bit;
+			int offset_random_bits = detex_rgtc1_offset_random_bits_table[generation_table_index];
+			int rnd = rng->RandomBits(offset_random_bits + 1);
+			sign_bit = rnd & 1;
+			offset = (rnd >> 1) + 1;
+			// Apply positive or negative displacement.
+			if (sign_bit == 0) {
+				value += offset;
+				if (value > 127)
+					value = 127;
+			}
+			else {
+				value -= offset;
+				if (value < -127)
+					value = -127;
+			}
+			red_values &= ~mask;
+			red_values |= (uint8_t)(int8_t)value << detex_rgtc1_component_shift[component];
+		}
+		if ((red_values & 0xFF) == 0xFF || (red_values >> 8) == 0xFF)
+			// red0 or red1 value of -128 not allowed.
+			continue;
+		int m = (red_values & 0xFF) <= (red_values >> 8);
+		if (info->mode < 0 || m == info->mode)
+			break;
+	}
+	*(uint16_t *)bitstring16 = red_values;
+}
+
+static DETEX_INLINE_ONLY uint64_t SetPixelXYSignedRGTC1(const uint8_t * DETEX_RESTRICT pix_orig, int stride_orig,
+int dx, int dy, const int * DETEX_RESTRICT red, uint64_t & DETEX_RESTRICT red_pixel_indices) {
+	int red_orig = *(int16_t *)(pix_orig + dy * stride_orig + dx * 2);
+	uint64_t best_error = (int64_t)(red_orig - red[0]) * (red_orig - red[0]);
+	int best_pixel_index = 0;
+	for (int i = 1; i < 8; i++) {
+		uint64_t error = (int64_t)(red_orig - red[i]) * (red_orig - red[i]);
+		if (error < best_error) {
+			best_error = error;
+			best_pixel_index = i;
+		}
+	}
+	int i = dy * 4 + dx;
+	red_pixel_indices |= (uint64_t)best_pixel_index << (i * 3);
+	return best_error;
+}
+
+static DETEX_INLINE_ONLY void DecodeRedSignedRGTC1(int *red) {
+	if (red[0] > red[1]) {
+		red[2] = detexDivideMinus895To895By7(6 * red[0] + 1 * red[1]);
+		red[3] = detexDivideMinus895To895By7(5 * red[0] + 2 * red[1]);
+		red[4] = detexDivideMinus895To895By7(4 * red[0] + 3 * red[1]);
+		red[5] = detexDivideMinus895To895By7(3 * red[0] + 4 * red[1]);
+		red[6] = detexDivideMinus895To895By7(2 * red[0] + 5 * red[1]);
+		red[7] = detexDivideMinus895To895By7(1 * red[0] + 6 * red[1]);
+	}
+	else {
+		red[2] = detexDivideMinus639To639By5(4 * red[0] + 1 * red[1]);
+		red[3] = detexDivideMinus639To639By5(3 * red[0] + 2 * red[1]);
+		red[4] = detexDivideMinus639To639By5(2 * red[0] + 3 * red[1]);
+		red[5] = detexDivideMinus639To639By5(1 * red[0] + 4 * red[1]);
+		red[6] = - 127;
+		red[7] = 127;
+	}
+}
+
+static DETEX_INLINE_ONLY int MapFromMinus127To127ToMinus32768to32767(int value) {
+	return ((value + 127) * 65535 / 254 - 32768);
+}
+
+uint64_t SetPixelsSignedRGTC1(const detexBlockInfo * DETEX_RESTRICT info, uint8_t * DETEX_RESTRICT bitstring) {
+	const detexTexture *texture = info->texture;
+	int x = info->x;
+	int y = info->y;
+	int red[8];
+	red[0] = *(int8_t *)bitstring;
+	red[1] = *(int8_t *)(bitstring + 1);
+	DecodeRedSignedRGTC1(red);
+	for (int i = 0; i < 8; i++)
+		red[i] = MapFromMinus127To127ToMinus32768to32767(red[i]);
+	uint8_t *pix_orig = texture->data + (y * texture->width + x) * 2;
+	int stride_orig = texture->width * 2;
+	uint64_t red_pixel_indices = 0;
+	uint64_t error = SetPixelXYSignedRGTC1(pix_orig, stride_orig, 0, 0, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 1, 0, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 2, 0, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 3, 0, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 0, 1, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 1, 1, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 2, 1, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 3, 1, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 0, 2, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 1, 2, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 2, 2, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 3, 2, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 0, 3, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 1, 3, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 2, 3, red, red_pixel_indices);
+	error += SetPixelXYSignedRGTC1(pix_orig, stride_orig, 3, 3, red, red_pixel_indices);
 	*(uint64_t *)bitstring = *(uint16_t *)bitstring | (red_pixel_indices << 16);
 	return error;
 }

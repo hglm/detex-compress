@@ -33,6 +33,9 @@ enum detexErrorUnit {
 	DETEX_ERROR_UNIT_DOUBLE
 };
 
+typedef uint32_t (*detexSetPixelsFunc)(const detexBlockInfo *block_info, uint8_t *bitstring);
+typedef uint32_t (*detexCalculateErrorFunc)(const detexTexture *texture, int x, int y, uint8_t *pixel_buffer);
+
 struct detexCompressionInfo {
 	int nu_modes;
 	bool modal_default;
@@ -77,8 +80,13 @@ void SeedBC3(const detexBlockInfo *info, dstCMWCRNG *rng, uint8_t *bitstring);
 void MutateBC3(const detexBlockInfo *info, dstCMWCRNG *rng, int generation, uint8_t *bitstring);
 uint32_t SetPixelsBC3(const detexBlockInfo *info, uint8_t *bitstring);
 
-// BC4/RGTC1
+// BC4_UNORM/RGTC1
 void SeedRGTC1(const detexBlockInfo *info, dstCMWCRNG *rng, uint8_t *bitstring);
 void MutateRGTC1(const detexBlockInfo *info, dstCMWCRNG *rng, int generation, uint8_t *bitstring);
 uint32_t SetPixelsRGTC1(const detexBlockInfo *info, uint8_t *bitstring);
+
+// BC4_SNORM/SIGNED_RGTC1
+void SeedSignedRGTC1(const detexBlockInfo *info, dstCMWCRNG *rng, uint8_t *bitstring);
+void MutateSignedRGTC1(const detexBlockInfo *info, dstCMWCRNG *rng, int generation, uint8_t *bitstring);
+uint64_t SetPixelsSignedRGTC1(const detexBlockInfo *info, uint8_t *bitstring);
 
