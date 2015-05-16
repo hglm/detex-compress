@@ -241,6 +241,7 @@ uint8_t * DETEX_RESTRICT pixel_buffer) {
 
 static const uint32_t supported_formats[] = {
 	DETEX_TEXTURE_FORMAT_BC1,
+	DETEX_TEXTURE_FORMAT_BC1A,
 	DETEX_TEXTURE_FORMAT_BC2,
 	DETEX_TEXTURE_FORMAT_BC3,
 	DETEX_TEXTURE_FORMAT_RGTC1,
@@ -262,11 +263,11 @@ static const int detex_modes_0[2] = { 0, -1 };
 
 static const int detex_modes_01[3] = { 0, 1, -1 };
 
-static const int *detexGetModes0(detexBlockInfo *block_info) {
+static const int *detexGetModes0(const detexBlockInfo *block_info) {
 	return detex_modes_0;
 }
 
-static const int *detexGetModes01(detexBlockInfo *block_info) {
+static const int *detexGetModes01(const detexBlockInfo *block_info) {
 	return detex_modes_01;
 }
 
@@ -275,7 +276,8 @@ static const detexCompressionInfo compression_info[] = {
 	{ 2, true, detexGetModes01, DETEX_ERROR_UNIT_UINT32, SeedBC1, detexSetModeBC1,
 	MutateBC1, SetPixelsBC1, detexCalculateErrorRGBX8 },
 	// BC1A
-	{ 2, true, detexGetModes01, DETEX_ERROR_UNIT_UINT32, NULL, NULL, NULL, NULL },
+	{ 2, true, GetModesBC1A, DETEX_ERROR_UNIT_UINT32, SeedBC1, detexSetModeBC1,
+	MutateBC1, SetPixelsBC1A, detexCalculateErrorRGBA8 },
 	// BC2
 	// Use modal configuration with just one mode. This ensures the color definitions
 	// comply to mode 0, as required for BC2.
@@ -302,7 +304,6 @@ static const detexCompressionInfo compression_info[] = {
 // Determine block flags for RGBA8/RGBX8 block (whether it is completely opaque or non-opaque,
 // whether it uses only a limited amount of colors).
 static void SetBlockFlags(detexBlockInfo *block_info, uint32_t format) {
-	block_info->colors = NULL;
 	if (format == DETEX_PIXEL_FORMAT_RGBA8)
 		block_info->flags = DETEX_BLOCK_FLAG_OPAQUE | DETEX_BLOCK_FLAG_NON_OPAQUE | DETEX_BLOCK_FLAG_PUNCHTHROUGH |
 			DETEX_BLOCK_FLAG_MAX_TWO_COLORS;

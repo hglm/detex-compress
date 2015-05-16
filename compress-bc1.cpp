@@ -159,26 +159,6 @@ uint8_t * DETEX_RESTRICT bitstring) {
 			break;
 	}
 	*(uint32_t *)bitstring32 = colors;
-#if 0
-	int nu_mutations;
-	if (generation >= 2048) {
-		// From iteration 2048 to 2047, mutate 1 to 4 bits
-		// in a logarithmic distribution.
-		int rnd = rng->RandomBits(4);
-		nu_mutations = 4 - dstCalculateLog2Max256(rnd);
-	}
-	else {
-		// From iteration 256 to 2047, mutate 1 to 8 bits.
-		nu_mutations = rng->RandomBits(3) + 1;
-	}
-	for (; nu_mutations > 0; nu_mutations--) {
-		int bit_index;
-		// Mutate one of the color bits.
-		bit_index = rng->RandomBits(5);
-		int byte_index = bit_index >> 3;
-		bitstring[byte_index] ^= 1 << (bit_index & 7);
-	}
-#endif
 }
 
 static DETEX_INLINE_ONLY uint32_t SetPixelXYBC1(const uint8_t * DETEX_RESTRICT pix_orig, int stride_orig, int dx, int dy,
@@ -363,6 +343,118 @@ uint32_t SetPixelsBC1(const detexBlockInfo * DETEX_RESTRICT info, uint8_t * DETE
 	error += SetPixelXYBC1(pix_orig, stride_orig, 1, 3, color_r, color_g, color_b, pixel_indices);
 	error += SetPixelXYBC1(pix_orig, stride_orig, 2, 3, color_r, color_g, color_b, pixel_indices);
 	error += SetPixelXYBC1(pix_orig, stride_orig, 3, 3, color_r, color_g, color_b, pixel_indices);
+	*(uint32_t *)(bitstring + 4) = pixel_indices;
+	return error;
+}
+
+static const int detex_BC1A_modes_0[] = { 0, -1 };
+static const int detex_BC1A_modes_01[] = { 0, 1, -1 };
+
+const int *GetModesBC1A(const detexBlockInfo *info) {
+	if ((info->flags & DETEX_BLOCK_FLAG_OPAQUE) != 0)
+		return detex_BC1A_modes_0;
+	return detex_BC1A_modes_01;
+}
+
+static DETEX_INLINE_ONLY void DecodeColorsBC1A(uint32_t colors, int * DETEX_RESTRICT color_r,
+int * DETEX_RESTRICT color_g, int * DETEX_RESTRICT color_b, int * DETEX_RESTRICT color_a) {
+	color_b[0] = (colors & 0x0000001F) << 3;
+	color_g[0] = (colors & 0x000007E0) >> (5 - 2);
+	color_r[0] = (colors & 0x0000F800) >> (11 - 3);
+	color_b[1] = (colors & 0x001F0000) >> (16 - 3);
+	color_g[1] = (colors & 0x07E00000) >> (21 - 2);
+	color_r[1] = (colors & 0xF8000000) >> (27 - 3);
+	color_a[0] = color_a[1] = color_a[2] = 0xFF;
+	if ((colors & 0xFFFF) > ((colors & 0xFFFF0000) >> 16)) {
+		color_r[2] = detexDivide0To767By3(2 * color_r[0] + color_r[1]);
+		color_g[2] = detexDivide0To767By3(2 * color_g[0] + color_g[1]);
+		color_b[2] = detexDivide0To767By3(2 * color_b[0] + color_b[1]);
+		color_r[3] = detexDivide0To767By3(color_r[0] + 2 * color_r[1]);
+		color_g[3] = detexDivide0To767By3(color_g[0] + 2 * color_g[1]);
+		color_b[3] = detexDivide0To767By3(color_b[0] + 2 * color_b[1]);
+		color_a[3] = 0xFF;
+	}
+	else {
+		color_r[2] = (color_r[0] + color_r[1]) / 2;
+		color_g[2] = (color_g[0] + color_g[1]) / 2;
+		color_b[2] = (color_b[0] + color_b[1]) / 2;
+		color_r[3] = color_g[3] = color_b[3] = 0;
+		color_a[3] = 0;
+	}
+}
+
+static DETEX_INLINE_ONLY uint32_t SetPixelXYBC1A(const uint8_t * DETEX_RESTRICT pix_orig, int stride_orig, int dx, int dy,
+const int * DETEX_RESTRICT color_r, const int * DETEX_RESTRICT color_g, const int * DETEX_RESTRICT color_b,
+const int * DETEX_RESTRICT color_a, uint32_t & DETEX_RESTRICT pixel_indices) {
+	uint32_t pixel_orig = *(uint32_t *)(pix_orig + dy * stride_orig + dx * 4);
+	int r_orig = detexPixel32GetR8(pixel_orig);
+	int g_orig = detexPixel32GetG8(pixel_orig);
+	int b_orig = detexPixel32GetB8(pixel_orig);
+	int a_orig = detexPixel32GetA8(pixel_orig);
+	uint32_t best_error = GetPixelErrorRGBA8(r_orig, g_orig, b_orig, a_orig, color_r[0], color_g[0], color_b[0],
+		color_a[0]);
+	int best_pixel_index = 0;
+	uint32_t error1 = GetPixelErrorRGBA8(r_orig, g_orig, b_orig, a_orig, color_r[1], color_g[1], color_b[1],
+		color_a[1]);
+	if (error1 < best_error) {
+		best_error = error1;
+		best_pixel_index = 1;
+	}
+	uint32_t error2 = GetPixelErrorRGBA8(r_orig, g_orig, b_orig, a_orig, color_r[2], color_g[2], color_b[2],
+		color_a[2]);
+	if (error2 < best_error) {
+		best_error = error2;
+		best_pixel_index = 2;
+	}
+	uint32_t error3 = GetPixelErrorRGBA8(r_orig, g_orig, b_orig, a_orig, color_r[3], color_g[3], color_b[3],
+		color_a[3]);
+	if (error3 < best_error) {
+		best_error = error3;
+		best_pixel_index = 3;
+	}
+	int i = dy * 4 + dx;
+	pixel_indices |= best_pixel_index << (i * 2);
+	return best_error;
+}
+
+// Set the pixel indices of the compressed block using the available colors so that they
+// most closely match the original block. Return the comparison error value.
+uint32_t SetPixelsBC1A(const detexBlockInfo * DETEX_RESTRICT info, uint8_t * DETEX_RESTRICT bitstring) {
+	// Decode colors.
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ || !defined(__BYTE_ORDER__)
+	uint32_t colors = *(uint32_t *)&bitstring[0];
+#else
+	uint32_t colors = ((uint32_t)bitstring[0] << 24) |
+		((uint32_t)bitstring[1] << 16) |
+		((uint32_t)bitstring[2] << 8) | bitstring[3];
+#endif
+	// Decode the two 5-6-5 RGB colors.
+	int color_r[4], color_g[4], color_b[4], color_a[4];
+	DecodeColorsBC1A(colors, color_r, color_g, color_b, color_a);
+	// Set pixels indices.
+	const detexTexture *texture = info->texture;
+	int x = info->x;
+	int y = info->y;
+	uint8_t *pix_orig = texture->data + (y * texture->width + x) * 4;
+	int stride_orig = texture->width * 4;
+	uint32_t pixel_indices = 0;
+	uint32_t error = 0;
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 0, 0, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 1, 0, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 2, 0, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 3, 0, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 0, 1, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 1, 1, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 2, 1, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 3, 1, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 0, 2, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 1, 2, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 2, 2, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 3, 2, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 0, 3, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 1, 3, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 2, 3, color_r, color_g, color_b, color_a, pixel_indices);
+	error += SetPixelXYBC1A(pix_orig, stride_orig, 3, 3, color_r, color_g, color_b, color_a, pixel_indices);
 	*(uint32_t *)(bitstring + 4) = pixel_indices;
 	return error;
 }

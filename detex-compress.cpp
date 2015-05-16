@@ -88,6 +88,7 @@ static const uint32_t supported_formats[] = {
 
 static const uint32_t supported_formats_compression[] = {
 	DETEX_TEXTURE_FORMAT_BC1,
+	DETEX_TEXTURE_FORMAT_BC1A,
 	DETEX_TEXTURE_FORMAT_BC2,
 	DETEX_TEXTURE_FORMAT_BC3,
 	DETEX_TEXTURE_FORMAT_RGTC1,

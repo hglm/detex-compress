@@ -36,7 +36,7 @@ struct detexBlockInfo {
 	int y;
 	int mode;
 	uint32_t flags;
-	uint32_t * DETEX_RESTRICT colors;
+	uint32_t DETEX_RESTRICT colors[2];
 };
 
 enum detexErrorUnit {
@@ -51,7 +51,7 @@ typedef uint32_t (*detexCalculateErrorFunc)(const detexTexture *texture, int x, 
 struct detexCompressionInfo {
 	int nu_modes;
 	bool modal_default;
-	const int *(*get_modes_func)(detexBlockInfo *block_info);
+	const int *(*get_modes_func)(const detexBlockInfo *block_info);
 	detexErrorUnit error_unit;
 	void (*seed_func)(const detexBlockInfo *block_info, dstCMWCRNG *rng, uint8_t *bitstring);
 	void (*set_mode_func)(uint8_t *bitstring, uint32_t mode, uint32_t flags, uint32_t *colors);
@@ -75,12 +75,26 @@ static DETEX_INLINE_ONLY uint32_t GetPixelErrorRGB8(int r1, int g1, int b1, int 
 	return error;
 }
 
+static DETEX_INLINE_ONLY uint32_t GetPixelErrorRGBA8(int r1, int g1, int b1, int a1, int r2, int g2, int b2, int a2) {
+	if ((a1 | a2) == 0)
+		return 0;
+	uint32_t error = (r1 - r2) * (r1 - r2);
+	error += (g1 - g2) * (g1 - g2);
+	error += (b1 - b2) * (b1 - b2);
+	error += (a1 - a2) * (a1 - a2);
+	return error;
+}
+
 uint32_t detexCalculateErrorRGBA8(const detexTexture *texture, int x, int y, uint8_t *pixel_buffer);
 
 // BC1
 void SeedBC1(const detexBlockInfo *info, dstCMWCRNG *rng, uint8_t *bitstring);
 void MutateBC1(const detexBlockInfo *info, dstCMWCRNG *rng, int generation, uint8_t *bitstring);
 uint32_t SetPixelsBC1(const detexBlockInfo *info, uint8_t *bitstring);
+
+// BC1A
+const int *GetModesBC1A(const detexBlockInfo *info);
+uint32_t SetPixelsBC1A(const detexBlockInfo *info, uint8_t *bitstring);
 
 // BC2
 void SeedBC2(const detexBlockInfo *info, dstCMWCRNG *rng, uint8_t *bitstring);
