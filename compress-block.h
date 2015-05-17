@@ -21,8 +21,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 enum {
 	/* The block is opaque (alpha is always 0xFF). */
 	DETEX_BLOCK_FLAG_OPAQUE = 0x2,
-	/* The block is non-opaque (alpha is not always 0xFF). */
-	DETEX_BLOCK_FLAG_NON_OPAQUE = 0x4,
+	/* The block is transparent (alpha is never 0xFF). */
+	DETEX_BLOCK_FLAG_TRANSPARENT = 0x4,
 	/* The block has punchthrough alpha (alpha is either 0x00 or 0xFF). */
 	DETEX_BLOCK_FLAG_PUNCHTHROUGH = 0x8,
 	/* The block only consists of one or two different pixel colors. */

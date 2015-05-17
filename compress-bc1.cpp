@@ -347,12 +347,13 @@ uint32_t SetPixelsBC1(const detexBlockInfo * DETEX_RESTRICT info, uint8_t * DETE
 	return error;
 }
 
-static const int detex_BC1A_modes_0[] = { 0, -1 };
+static const int detex_BC1A_modes_1[] = { 1, -1 };
 static const int detex_BC1A_modes_01[] = { 0, 1, -1 };
 
 const int *GetModesBC1A(const detexBlockInfo *info) {
-	if ((info->flags & DETEX_BLOCK_FLAG_OPAQUE) != 0)
-		return detex_BC1A_modes_0;
+	if ((info->flags & DETEX_BLOCK_FLAG_OPAQUE) == 0)
+		// If the block has non-opaque pixels, use mode 1.
+		return detex_BC1A_modes_1;
 	return detex_BC1A_modes_01;
 }
 

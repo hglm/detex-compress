@@ -38,7 +38,7 @@ detex and compile and install the compression utility.
 	make
 	sudo make install
 
---- Usage ----
+---- Usage ----
 
 Run detex-compress without arguments for a list of all available options.
 
@@ -50,8 +50,13 @@ The --modal option causes a compression try to be performed for each mode
 supported by the compression format. The non-modal option disables modal
 operation. Since BC1/S3TC has two modes, modal operation will double the amount
 of tries. Modal operation can increase quality and improves worst-case quality
-by make sure each compression mode is sufficiently explored. For the BC1
-format, modal operation is the default.
+by make sure each compression mode is sufficiently explored. For all currently
+supported formats, modal operation is the default.
+
+The --modes can be used to limit compressed blocks to a specified set of modes.
+The argument is a string of digits. For example, "--modes 01" will limit
+compression to modes 0 and 1 of the compressed output format. See the modes
+section below for details.
 
 Example command lines:
 
@@ -59,4 +64,68 @@ Example command lines:
 	detex-compress --format BC1 --non-modal texture.png texture.ktx
 	detex-compress --format BC1 --tries 4 texture.png texture.ktx
 	detex-compress --decompress texture.ktx texture-decompressed.ktx
+
+---- Compressed block modes ----
+
+The following is a table with compressed block modes for each compressed
+format.
+
+Format	Mode
+
+BC1	
+	0	Two base colors, two intermediate colors derived by
+		weightings of 1/3 and 2/3.
+	1	Two base colors, one intermediate color derived by
+		weighting of 1/2, and the fourth color is black.
+
+BC1A	
+	0	Two opaque base colors, two opaque intermediate colors derived
+		by weightings of 1/3 and 2/3.
+	1	Two opaque base colors, one opaque intermediate color derived
+		by weighting of 1/2. The fourth color is fully transparent with
+		component values of zero.
+
+BC2	
+	0	The only allowed mode, with colors corresponding to BC1 mode 0.
+
+BC3
+	0	Colors correspond to BC1 mode 0. Two base alpha values, six
+		intermediate alpha values derived by weightings of n/7.
+	1	Colors correspond to BC1 mode 0. Two base alpha values, four
+		intermediate alpha values derived by weighting of n/5, and
+		two fixed alpha values of 0x00 (transparent) and 0xFF (opaque).
+
+RGTC1 (BC4_UNORM)
+	0	Two base red values, six intermediate red values derived by
+		weightings of n/7.
+	1	Two base red values, four intermediate red values derived by
+		weighting of n/5, and two fixed red values of 0x00 and 0xFF.
+
+RGTC2 (BC5_UNORM)
+	The same modes as RGTC1, which apply to both the red and green
+	components.
+
+SIGNED_RGTC1 (BC4_SNORM)
+	0	Two base red values, six intermediate red values derived by
+		weightings of n/7.
+	1	Two base red values, four intermediate red values derived by
+		weighting of n/5, and two fixed red values with minimum and
+		maximum values (-32768 and 32767).
+
+SIGNED_RGTC2 (BC5_SNORM)
+	The same modes as SIGNED_RGTC1, which apply to both the red and green
+	components.
+
+ETC1
+	0	Individual mode, which defines two base colors with 4-bit
+		color precision. Flip-bit is 0, which means the first base
+		color applies to the left half of the pixel block and
+		the second color to the right half.
+	1	Individual mode with flip-bit of 1, which menas the first
+		base color applies to the top half of the pixel block and
+		the second color to the bottom half.
+	2	Differential mode, which defines one base color with 5-bit
+		color precision and one base color with 3-bit differential
+		relative to the first base color components. Flip-bit is 0.
+	3	Differential mode with flip-bit of 1.
 

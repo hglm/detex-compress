@@ -38,6 +38,7 @@ static char *output_file;
 static int output_file_type;
 static int nu_tries;
 static int max_threads;
+static int *modes;
 
 static const uint32_t supported_formats[] = {
 	// Uncompressed formats.
@@ -122,6 +123,7 @@ static const struct option long_options[] = {
 	{ "tries", required_argument, NULL, 't' },
 	{ "max-threads", required_argument, NULL, 'n' },
 	{ "mipmaps", no_argument, NULL, 'p' },
+	{ "modes", required_argument, NULL, 'e' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -212,10 +214,24 @@ static uint32_t ParseFormat(const char *s) {
 	FatalError("Fatal error: Format %s not recognized\n" ,s);
 }
 
+static int *ParseModes(const char *str) {
+	int nu_modes = strlen(str);
+	int *modes = (int *)malloc(sizeof(int) * (nu_modes + 1));
+	for (int i = 0; i < nu_modes; i++) {
+		int mode = str[i] - '0';
+		if (mode < 0 || mode >= 10)
+			FatalError("Invalid mode specified\n");
+		modes[i] = mode;
+	}
+	modes[nu_modes] = -1;
+	return modes;
+}
+
 static void ParseArguments(int argc, char **argv) {
 	option_flags = 0;
 	nu_tries = 1;
 	max_threads = 0;
+	modes = NULL;
 	while (true) {
 		int option_index = 0;
 		int c = getopt_long(argc, argv, "f:o:i:q", long_options, &option_index);
@@ -255,6 +271,9 @@ static void ParseArguments(int argc, char **argv) {
 			break;
 		case 'p' :
 			option_flags |= OPTION_FLAG_MIPMAPS;
+			break;
+		case 'e' :
+			modes = ParseModes(optarg);
 			break;
 		default :
 			FatalError("");
@@ -392,7 +411,17 @@ int main(int argc, char **argv) {
 			if (option_flags & OPTION_FLAG_NON_MODAL)
 				modal = false;
 			if (modal) {
-				int nu_modes = detexGetNumberOfModes(output_format);
+				int nu_modes;
+				if (modes == NULL)
+					nu_modes = detexGetNumberOfModes(output_format);
+				else {
+					nu_modes = 0;
+					int *modesp = modes;	
+					while (*modesp >= 0) {
+						nu_modes++;
+						modesp++;
+					}
+				}
 				Message("modal (%d modes), total tries per block: %d\n", nu_modes, nu_tries * nu_modes);
 			}
 			else
@@ -418,7 +447,7 @@ int main(int argc, char **argv) {
 					input_textures[i]->height / 16;
 				output_textures[i] = (detexTexture *)malloc(sizeof(detexTexture));
 				output_textures[i]->data = (uint8_t *)malloc(size); 
-				bool r = detexCompressTexture(nu_tries, modal, max_threads,
+				bool r = detexCompressTexture(nu_tries, modal, max_threads, modes,
 					adjusted_input_texture, output_textures[i]->data, output_format);
 				if (!r)
 					FatalError("Error compressing texture");

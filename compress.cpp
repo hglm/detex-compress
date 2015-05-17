@@ -294,10 +294,10 @@ static const detexCompressionInfo compression_info[] = {
 	MutateSignedRGTC1, (detexSetPixelsFunc)SetPixelsSignedRGTC1,
 	(detexCalculateErrorFunc)detexCalculateErrorSignedR16 },
 	// RGTC2
-	{ 4, true, detexGetModes01, DETEX_ERROR_UNIT_UINT32, NULL, NULL,
+	{ 2, true, detexGetModes01, DETEX_ERROR_UNIT_UINT32, NULL, NULL,
 	NULL, NULL, detexCalculateErrorRG8 },
 	// SIGNED_RGTC2
-	{ 4, true, detexGetModes01, DETEX_ERROR_UNIT_UINT64, NULL, NULL,
+	{ 2, true, detexGetModes01, DETEX_ERROR_UNIT_UINT64, NULL, NULL,
 	NULL, NULL, (detexCalculateErrorFunc)detexCalculateErrorSignedRG16 },
 };
 
@@ -305,7 +305,7 @@ static const detexCompressionInfo compression_info[] = {
 // whether it uses only a limited amount of colors).
 static void SetBlockFlags(detexBlockInfo *block_info, uint32_t format) {
 	if (format == DETEX_PIXEL_FORMAT_RGBA8)
-		block_info->flags = DETEX_BLOCK_FLAG_OPAQUE | DETEX_BLOCK_FLAG_NON_OPAQUE | DETEX_BLOCK_FLAG_PUNCHTHROUGH |
+		block_info->flags = DETEX_BLOCK_FLAG_OPAQUE | DETEX_BLOCK_FLAG_TRANSPARENT | DETEX_BLOCK_FLAG_PUNCHTHROUGH |
 			DETEX_BLOCK_FLAG_MAX_TWO_COLORS;
 	else if (format == DETEX_PIXEL_FORMAT_RGBX8)
 		block_info->flags = DETEX_BLOCK_FLAG_OPAQUE | DETEX_BLOCK_FLAG_PUNCHTHROUGH |
@@ -326,7 +326,7 @@ static void SetBlockFlags(detexBlockInfo *block_info, uint32_t format) {
 			if (format == DETEX_PIXEL_FORMAT_RGBA8) {
 				int alpha = detexPixel32GetA8(pixel);
 				if (alpha == 0xFF)
-					block_info->flags &= (~DETEX_BLOCK_FLAG_NON_OPAQUE);
+					block_info->flags &= (~DETEX_BLOCK_FLAG_TRANSPARENT);
 				else {
 					block_info->flags &= (~DETEX_BLOCK_FLAG_OPAQUE);
 					if (alpha != 0x00)
@@ -425,6 +425,7 @@ struct ThreadData {
 	int y_end;
 	int nu_tries;
 	bool modal;
+	int *modes;
 	dstCMWCRNG *rng;
 };
 
@@ -448,8 +449,12 @@ static void *CompressBlocksThread(void *_thread_data) {
 				uint8_t bitstring[16];
 				if (thread_data->modal) {
 					// Compress the block using each mode.
-					const int *modesp = compression_info[compressed_format_index - 1].get_modes_func(
-						&block_info);
+					const int *modesp;
+					if (thread_data->modes == NULL)
+						modesp = compression_info[compressed_format_index - 1].get_modes_func(
+							&block_info);
+					else
+						modesp = thread_data->modes;
 					int mode;
 					for (;mode = *modesp, mode >= 0; modesp++) {
 						block_info.mode = mode;
@@ -483,8 +488,29 @@ static void *CompressBlocksThread(void *_thread_data) {
 	return NULL;
 }
 
-bool detexCompressTexture(int nu_tries, bool modal, int max_threads, const detexTexture * DETEX_RESTRICT texture,
-uint8_t * DETEX_RESTRICT pixel_buffer, uint32_t output_format) {
+static bool VerifyModes(int *modes, int nu_modes) {
+	int mode;
+	for (;; modes++) {
+		mode = *modes;
+		if (mode < 0)
+			break;
+		if (mode >= nu_modes)
+			return false;
+	}
+	return true;
+}
+
+bool detexCompressTexture(int nu_tries, bool modal, int max_threads, int *modes,
+const detexTexture * DETEX_RESTRICT texture, uint8_t * DETEX_RESTRICT pixel_buffer, uint32_t output_format) {
+	// Verify optional modes list.
+	int compressed_format_index = detexGetCompressedFormat(output_format);
+	if (modes != NULL) {
+		int nu_modes = compression_info[compressed_format_index - 1].nu_modes;
+		if (!VerifyModes(modes, nu_modes)) {
+			printf("Invalid mode specified");
+			exit(1);
+		}
+	}
 	// Special handling for compressed texture formats that can be composited from compression
 	// of other formats.
 	if (output_format == DETEX_TEXTURE_FORMAT_RGTC2) {
@@ -499,7 +525,7 @@ uint8_t * DETEX_RESTRICT pixel_buffer, uint32_t output_format) {
 		int nu_blocks = texture->width * texture->height / 16;
 		uint8_t *temp_pixel_buffer = (uint8_t *)malloc(nu_blocks * 8);
 		// Compress the red components.
-		detexCompressTexture(nu_tries, modal, max_threads, &temp_texture, temp_pixel_buffer,
+		detexCompressTexture(nu_tries, modal, max_threads, modes, &temp_texture, temp_pixel_buffer,
 			DETEX_TEXTURE_FORMAT_RGTC1);
 		for (int i = 0; i < nu_blocks; i++)
 			*(uint64_t *)(pixel_buffer + i * 16) = *(uint64_t *)(temp_pixel_buffer + i * 8);
@@ -507,7 +533,7 @@ uint8_t * DETEX_RESTRICT pixel_buffer, uint32_t output_format) {
 		for (int i = 0; i < nu_pixels; i++)
 			temp_texture.data[i] = texture->data[i * 2 + 1];
 		// Compress the green components.
-		detexCompressTexture(nu_tries, modal, max_threads, &temp_texture, temp_pixel_buffer,
+		detexCompressTexture(nu_tries, modal, max_threads, modes, &temp_texture, temp_pixel_buffer,
 			DETEX_TEXTURE_FORMAT_RGTC1);
 		free(temp_texture.data);
 		for (int i = 0; i < nu_blocks; i++)
@@ -527,7 +553,7 @@ uint8_t * DETEX_RESTRICT pixel_buffer, uint32_t output_format) {
 		int nu_blocks = texture->width * texture->height / 16;
 		uint8_t *temp_pixel_buffer = (uint8_t *)malloc(nu_blocks * 8);
 		// Compress the red components.
-		detexCompressTexture(nu_tries, modal, max_threads, &temp_texture, temp_pixel_buffer,
+		detexCompressTexture(nu_tries, modal, max_threads, modes, &temp_texture, temp_pixel_buffer,
 			DETEX_TEXTURE_FORMAT_SIGNED_RGTC1);
 		for (int i = 0; i < nu_blocks; i++)
 			*(uint64_t *)(pixel_buffer + i * 16) = *(uint64_t *)(temp_pixel_buffer + i * 8);
@@ -535,7 +561,7 @@ uint8_t * DETEX_RESTRICT pixel_buffer, uint32_t output_format) {
 		for (int i = 0; i < nu_pixels; i++)
 			*(int16_t *)(temp_texture.data + i * 2) = *(int16_t *)(texture->data + i * 4 + 2);
 		// Compress the green components.
-		detexCompressTexture(nu_tries, modal, max_threads, &temp_texture, temp_pixel_buffer,
+		detexCompressTexture(nu_tries, modal, max_threads, modes, &temp_texture, temp_pixel_buffer,
 			DETEX_TEXTURE_FORMAT_SIGNED_RGTC1);
 		free(temp_texture.data);
 		for (int i = 0; i < nu_blocks; i++)
@@ -570,6 +596,7 @@ uint8_t * DETEX_RESTRICT pixel_buffer, uint32_t output_format) {
 		thread_data[i].y_end = (i + 1) * texture->height / nu_threads;
 		thread_data[i].nu_tries = nu_tries;
 		thread_data[i].modal = modal;
+		thread_data[i].modes = modes;
 		thread_data[i].rng = new dstCMWCRNG;
 		if (i < nu_threads - 1)
 			pthread_create(&thread[i], NULL, CompressBlocksThread, &thread_data[i]);
