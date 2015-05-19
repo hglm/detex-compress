@@ -248,6 +248,7 @@ static const uint32_t supported_formats[] = {
 	DETEX_TEXTURE_FORMAT_SIGNED_RGTC1,
 	DETEX_TEXTURE_FORMAT_RGTC2,
 	DETEX_TEXTURE_FORMAT_SIGNED_RGTC2,
+	DETEX_TEXTURE_FORMAT_ETC1,
 };
 
 #define NU_SUPPORTED_FORMATS (sizeof(supported_formats) / sizeof(supported_formats[0]))
@@ -263,12 +264,18 @@ static const int detex_modes_0[2] = { 0, -1 };
 
 static const int detex_modes_01[3] = { 0, 1, -1 };
 
+static const int detex_modes_0123[5] = { 0, 1, 2, 3, -1 };
+
 static const int *detexGetModes0(const detexBlockInfo *block_info) {
 	return detex_modes_0;
 }
 
 static const int *detexGetModes01(const detexBlockInfo *block_info) {
 	return detex_modes_01;
+}
+
+static const int *detexGetModes0123(const detexBlockInfo *block_info) {
+	return detex_modes_0123;
 }
 
 static const detexCompressionInfo compression_info[] = {
@@ -299,6 +306,18 @@ static const detexCompressionInfo compression_info[] = {
 	// SIGNED_RGTC2
 	{ 2, true, detexGetModes01, DETEX_ERROR_UNIT_UINT64, NULL, NULL,
 	NULL, NULL, (detexCalculateErrorFunc)detexCalculateErrorSignedRG16 },
+	// BPTC_FLOAT
+	{ 14, true, NULL, DETEX_ERROR_UNIT_DOUBLE, NULL, NULL,
+	NULL, NULL, NULL },
+	// BPTC_SIGNED_FLOAT
+	{ 14, true, NULL, DETEX_ERROR_UNIT_DOUBLE, NULL, NULL,
+	NULL, NULL, NULL },
+	// BPTC
+	{ 8, true, NULL, DETEX_ERROR_UNIT_DOUBLE, NULL, NULL,
+	NULL, NULL, NULL },
+	// ETC1
+	{ 4, true, detexGetModes0123, DETEX_ERROR_UNIT_UINT32, SeedETC1, NULL,
+	MutateETC1, SetPixelsETC1, detexCalculateErrorRGBX8 },
 };
 
 // Determine block flags for RGBA8/RGBX8 block (whether it is completely opaque or non-opaque,

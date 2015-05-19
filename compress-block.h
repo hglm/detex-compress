@@ -116,3 +116,8 @@ void SeedSignedRGTC1(const detexBlockInfo *info, dstCMWCRNG *rng, uint8_t *bitst
 void MutateSignedRGTC1(const detexBlockInfo *info, dstCMWCRNG *rng, int generation, uint8_t *bitstring);
 uint64_t SetPixelsSignedRGTC1(const detexBlockInfo *info, uint8_t *bitstring);
 
+// ETC1
+void SeedETC1(const detexBlockInfo *info, dstCMWCRNG *rng, uint8_t *bitstring);
+void MutateETC1(const detexBlockInfo *info, dstCMWCRNG *rng, int generation, uint8_t *bitstring);
+uint32_t SetPixelsETC1(const detexBlockInfo *info, uint8_t *bitstring);
+
